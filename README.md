@@ -2,12 +2,13 @@
 Unity纯C#版的VUE，运行时0GC。
 ### FEATURES
 实现了几乎所有VUE特性
+* 理论上支持全平台
 * 运行时无GC
 * 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
 * 出现循环读写情况时，控制台会输出警告
 * 支持List、Array等数组成员
 ### INSTALL
-PackageManager下用过git url安装：https://github.com/labbbirder/CSReactive.git
+PackageManager下用git url安装：https://github.com/labbbirder/CSReactive.git
 ### QUICK START
 添加命名空间
 ```csharp
@@ -34,3 +35,5 @@ WatchEffect(()=>{
 });
 data.name = "bbbirder";
 ```
+### NOTES
+DynamicExpresso.dll并非官方原版，不要盲目更新它。此程序集在官方的基础上做了一些改动，已使其支持WebGL
