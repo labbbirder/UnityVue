@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:ListView focusable="true" name="list" virtualization-method="DynamicHeight" show-border="true" />
+    <ui:Button text="GC Manually" display-tooltip-when-elided="true" name="btnGC" style="margin-left: 6px; margin-right: 6px; margin-top: 6px; margin-bottom: 6px;" />
+    <ui:Button text="Clean Released References" display-tooltip-when-elided="true" name="btnClean" style="margin-left: 6px; margin-right: 6px; margin-top: 6px; margin-bottom: 6px;" />
+</ui:UXML>
