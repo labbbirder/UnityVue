@@ -5,7 +5,6 @@ using System.Linq;
 // using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Unity.VisualScripting.YamlDotNet.Core.Tokens;
 // using Collections.Pooled;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -21,14 +20,14 @@ namespace com.bbbirder{
         //     }
         //     // public void AddFunc<T>
         // }
-        // internal static ConditionalWeakTable<IWatched,HashSet<WatchScope>> dataDeps;
-        internal static ConditionalWeakTable<object,HashSet<WatchScope>> dataDeps;
+        internal static ConditionalWeakTable<IWatched,Dictionary<string,HashSet<WatchScope>>> dataDeps;
+        // internal static ConditionalWeakTable<object,HashSet<WatchScope>> dataDeps;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static HashSet<WatchScope> GetWatchScopes(IWatched obj){
+        public static HashSet<WatchScope> GetWatchScopes(IWatched obj, string key){
             var objDict = dataDeps.GetOrCreateValue(obj);
-            // if(!objDict.ContainsKey(key)) objDict.Add(key,new());
-            return objDict;
+            if(!objDict.ContainsKey(key)) objDict.Add(key,new());
+            return objDict[key];
         }
 
         public class __Internal_Maker
@@ -53,7 +52,7 @@ namespace com.bbbirder{
                     var scp = activeScope;
                     if(scp!=null){
                         scp.AddDeps(watched,key);
-                        GetWatchScopes(watched).Add(scp);
+                        GetWatchScopes(watched,key).Add(scp);
                     }
                     // Profiler.EndSample();
                 };
@@ -63,7 +62,7 @@ namespace com.bbbirder{
                     Assert.IsNotNull(watched,"data should be IWatched");
 
                     // willDrop.Clear();
-                    var relevantScopes = GetWatchScopes(watched);//.AsEnumerable();
+                    var relevantScopes = GetWatchScopes(watched,key);//.AsEnumerable();
                     if(relevantScopes.Count>tempScopes.Length){
                         tempScopes = new WatchScope[relevantScopes.Count];
                     }
@@ -71,20 +70,17 @@ namespace com.bbbirder{
                     // foreach(var scp in relevantScopes){
                     for(int i = 0;i<relevantScopes.Count;i++){
                         var scp = tempScopes[i];
-                        if(scp.deps.ContainsKey(watched)){
+                        // if(scp.deps.ContainsKey(watched)){
                             if(scp.deps[watched].Contains(key)){
                                 if(scp.flushMode==FlushMode.Immediate){
                                     scp.RunEffect();
-                                    // if(!scp.HasDeps(watched,key)){
-                                    //     willDrop.Add(scp);
-                                    // }
                                 }else if(scp.flushMode==FlushMode.LateUpdate){
                                     scp.SetDirty();
                                 }
                             }
-                        }else{
-                            relevantScopes.Remove(scp);
-                        }
+                        // }else{
+                        //     relevantScopes.Remove(scp);
+                        // }
                         tempScopes[i] = null;
                     }
                     // relevantScopes.RemoveWhere(e=>!e.HasDeps(watched,key));

@@ -136,9 +136,9 @@ namespace com.bbbirder
                     {
                         var obj = dep.Key;
                         var set = dep.Value;
-                        // foreach(var k in set){
-                        //     GetWatchScopes(obj,k).Remove(this);
-                        // }
+                        foreach(var k in set){
+                            GetWatchScopes(obj,k).Remove(this);
+                        }
                         // GetWatchScopes(obj).Remove(this);
                         set.Clear();
                     }

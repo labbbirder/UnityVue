@@ -11,9 +11,8 @@ internal class Installer
     static void InstallUnityPackage()
     {
         if(!Directory.Exists("Assets/Plugins/com.bbbirder.csreactive")){
-            Debug.Log("install package");
             var assetPath = AssetDatabase.GUIDToAssetPath(AssetGUID);
-            AssetDatabase.ImportPackage(assetPath,true);
+            AssetDatabase.ImportPackage(assetPath,false);
         }
     }
 }

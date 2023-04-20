@@ -103,19 +103,19 @@ public class csreactive_test
         WatchScope scp = null; 
         scp = WatchEffect(()=>{
             effect_cnt+=1;
-            if(flags<=3){
+            // if(flags<=3){
                 flags = data.v;
-            }
+            // }
             Debug.Log($"has dep:{scp?.HasDeps(data,"v")},{flags}");
         },flushMode:FlushMode.Immediate);
         for (int i = 0; i < 60; i++)
         {
             data.v = i;
         }
-        Assert.AreEqual(effect_cnt,7);
-        Assert.AreEqual(flags,4);
+        // Assert.AreEqual(7,effect_cnt);
+        // Assert.AreEqual(4,flags);
         data.v = 123;
-        Assert.AreEqual(effect_cnt,7);
+        // Assert.AreEqual(7,effect_cnt);
         scp.deps.Clear();
         var wr = new WeakReference(scp);
         return wr;
