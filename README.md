@@ -7,6 +7,16 @@ Unity纯C#版的VUE，运行时0GC。
 * 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
 * 出现循环读写情况时，控制台会输出警告
 * 支持List、Array等数组成员
+* 默认的延迟更新和立即更新两种flush mode
+
+其他功能
+* 数据可视化调试
+* 作用域可视化调试
+* 响应式GameObject和组件
+* 作用域可以与任意一个引用类型绑定，同生命周期
+
+限制
+* 数据源不支持字典、集合等其他容器，可以实现后提PR
 ### INSTALL
 PackageManager下用git url安装：https://github.com/labbbirder/CSReactive.git
 ### QUICK START
