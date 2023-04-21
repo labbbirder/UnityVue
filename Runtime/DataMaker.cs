@@ -14,36 +14,30 @@ namespace com.bbbirder{
 
     public partial class CSReactive
     {
-        // public class SmartInvoker{
-        //     public void Invoke<T>(object obj,string name,T v,T pv){
+        // #if UNITY_2023_3_OR_NEWER
+        // See: https://issuetracker.unity3d.com/issues/crashes-on-garbagecollector-collectincremental-when-entering-the-play-mode
+        // Implement(IL2CPP): https://unity.com/releases/editor/whats-new/2021.2.1
+        // Fixed(IL2CPP): https://unity.com/releases/editor/beta/2023.1.0b11
+        // internal static ConditionalWeakTable<IWatched,Dictionary<string,HashSet<WatchScope>>> dataDeps;
+        // #endif
 
-        //     }
-        //     // public void AddFunc<T>
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public static HashSet<WatchScope> GetWatchScopes(IWatched obj, string key){
+        //     var objDict = dataDeps.GetOrCreateValue(obj);
+        //     if(!objDict.ContainsKey(key)) objDict.Add(key,new());
+        //     return objDict[key];
         // }
-        internal static ConditionalWeakTable<IWatched,Dictionary<string,HashSet<WatchScope>>> dataDeps;
-        // internal static ConditionalWeakTable<object,HashSet<WatchScope>> dataDeps;
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static HashSet<WatchScope> GetWatchScopes(IWatched obj, string key){
-            var objDict = dataDeps.GetOrCreateValue(obj);
-            if(!objDict.ContainsKey(key)) objDict.Add(key,new());
-            return objDict[key];
-        }
 
         public class __Internal_Maker
         {
             internal __Internal_Maker() { }
-            // public T[] CreateArray<T>(T value)
-            // {
-            //     return new List<T>().ToArray();
-            // }
-            static internal Action<object,string> onGetMethod;
-            static internal Action<object,string> onSetMethod;            
-            static void SetupMethods(){
-                dataDeps = new();
+            // static internal Action<object,string> onGetMethod;
+            // static internal Action<object,string> onSetMethod;
+            // 因为Unity对CWT支持有问题，所以这里使用Upvalue保存依赖表，代价是较多的内存分配
+            static void SetupMethods(IWatched data){
+                var dataDeps = new Dictionary<string,HashSet<WatchScope>>();
                 var tempScopes = new WatchScope[4];
-                // willDropDataDeps = new();
-                onGetMethod = (object obj,string key)=>{
+                data.onGetProperty = (object obj,string key)=>{
                     var watched = obj as IWatched;
                     Assert.IsNotNull(watched,"data should be IWatched");
                     // Profiler.BeginSample("update deps");
@@ -51,51 +45,48 @@ namespace com.bbbirder{
                     lastAccess.name = key;
                     var scp = activeScope;
                     if(scp!=null){
-                        scp.AddDeps(watched,key);
-                        GetWatchScopes(watched,key).Add(scp);
+                        var relevantScopes = GetWatchScopes(key);
+                        relevantScopes.Add(scp);
+                        scp.deps.Add(relevantScopes);
                     }
                     // Profiler.EndSample();
                 };
-                var willDrop = new HashSet<WatchScope>(4);
-                onSetMethod = (object obj,string key)=>{
+                data.onSetProperty = (object obj,string key)=>{
                     var watched = obj as IWatched;
                     Assert.IsNotNull(watched,"data should be IWatched");
 
-                    // willDrop.Clear();
-                    var relevantScopes = GetWatchScopes(watched,key);//.AsEnumerable();
+                    var relevantScopes = GetWatchScopes(key);
                     if(relevantScopes.Count>tempScopes.Length){
                         tempScopes = new WatchScope[relevantScopes.Count];
                     }
                     relevantScopes.CopyTo(tempScopes);
-                    // foreach(var scp in relevantScopes){
                     for(int i = 0;i<relevantScopes.Count;i++){
                         var scp = tempScopes[i];
-                        // if(scp.deps.ContainsKey(watched)){
-                            if(scp.deps[watched].Contains(key)){
-                                if(scp.flushMode==FlushMode.Immediate){
-                                    scp.RunEffect();
-                                }else if(scp.flushMode==FlushMode.LateUpdate){
-                                    scp.SetDirty();
-                                }
-                            }
-                        // }else{
-                        //     relevantScopes.Remove(scp);
-                        // }
+                        if(scp.flushMode==FlushMode.Immediate){
+                            //ISSUE : break tempscopes
+                            scp.RunEffect();
+                        }else if(scp.flushMode==FlushMode.LateUpdate){
+                            scp.SetDirty();
+                        }
                         tempScopes[i] = null;
                     }
-                    // relevantScopes.RemoveWhere(e=>!e.HasDeps(watched,key));
                 };
+                HashSet<WatchScope> GetWatchScopes(string key){
+                    if(!dataDeps.ContainsKey(key)){
+                        dataDeps.Add(key,new());
+                    }
+                    return dataDeps[key];
+                }
             }
+            // static void SetupMethods(){
+            //     dataDeps = new();
+            //     CreateMethods();
+            // }
             public T OnMakeData<T>(T watched) where T : IWatched
             {
-                // PooledSet<WatchScope>
-                // Dictionary<string,HashSet<WatchScope>> 
-                // var relevantScopes = GetWatchScopes(watched,);
-                if(onGetMethod==null||onSetMethod==null){
-                    SetupMethods();
-                }
-                watched.onGetProperty += onGetMethod;
-                watched.onSetProperty += onSetMethod;
+                // watched.onGetProperty += onGetMethod;
+                // watched.onSetProperty += onSetMethod;
+                SetupMethods(watched);
                 return watched;
             }
             // [Obsolete("此方法在IL2CPP下不可用,请关注相关Unity官方更新。也可通过修改editor下源码实现。")]

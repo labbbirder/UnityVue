@@ -60,9 +60,9 @@ namespace com.bbbirder.unity{
                 eui.fld.style.color = isValid?Color.green:Color.red;
                 // eui.fld.text = isValid?scope.name:$"[released]";
                 if(isValid) eui.fld.text = scope.name;
-                eui.listDeps.itemsSource = isValid
-                    ?scope.deps.SelectMany(kvp=>kvp.Value.Select(name=>BuildString(kvp.Key.GetType().Name,":",name))).ToList()
-                    :new object[]{};
+                // eui.listDeps.itemsSource = isValid
+                //     ?scope.deps.SelectMany(kvp=>kvp.Value.Select(name=>BuildString(kvp.Key.GetType().Name,":",name))).ToList()
+                //     :new object[]{};
             };
             listView.itemsSource = ScopeVisualizer.Instance.refs;
 

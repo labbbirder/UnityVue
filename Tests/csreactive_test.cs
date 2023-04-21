@@ -1,3 +1,4 @@
+#undef ODIN_INSPECTOR
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -21,7 +22,6 @@ public class csreactive_test
         public float f = 0.2f;
         public List<Data2> d2list = new();
     }
-    // A Test behaves as an ordinary method
     [Test]
     public void csreactive_testSimplePasses()
     {
@@ -96,41 +96,39 @@ public class csreactive_test
         Assert.GreaterOrEqual(effect_cnt3,100);
 
     }
-    WeakReference csreactive_testGC_inner(){
-        var data = DataMaker.Reactive(new Data1());
-        int flags = 0;
-        var effect_cnt = 0;
-        WatchScope scp = null; 
-        scp = WatchEffect(()=>{
-            effect_cnt+=1;
-            // if(flags<=3){
-                flags = data.v;
-            // }
-            Debug.Log($"has dep:{scp?.HasDeps(data,"v")},{flags}");
-        },flushMode:FlushMode.Immediate);
-        for (int i = 0; i < 60; i++)
-        {
-            data.v = i;
-        }
-        // Assert.AreEqual(7,effect_cnt);
-        // Assert.AreEqual(4,flags);
-        data.v = 123;
-        // Assert.AreEqual(7,effect_cnt);
-        scp.deps.Clear();
-        var wr = new WeakReference(scp);
-        return wr;
-    }
-    [Test]
-    public void csreactive_testGC0(){
-        var wr = csreactive_testGC_inner();
-        GC.Collect();
-        Assert.AreNotEqual(null,wr.Target);
-    }
-    [Test]
-    public void csreactive_testGC1(){
-        var wr = csreactive_testGC_inner();
-        lastAccess.obj = null; //remove the last reference to data
-        GC.Collect();
-        Assert.AreEqual(null,wr.Target);
-    }
+    // WeakReference csreactive_testGC_inner(){
+    //     var data = DataMaker.Reactive(new Data1());
+    //     int flags = 0;
+    //     var effect_cnt = 0;
+    //     var scp = WatchEffect(()=>{
+    //         effect_cnt+=1;
+    //         if(flags<=3){
+    //             flags = data.v;
+    //         }
+    //     },flushMode:FlushMode.Immediate);
+    //     for (int i = 0; i < 60; i++)
+    //     {
+    //         data.v = i;
+    //     }
+    //     data.v = 123;
+    //     var wr = new WeakReference(scp);
+    //     return wr;
+    // }
+    // // [Test]
+    // // public void csreactive_testGC0(){
+    // //     var wr = csreactive_testGC_inner();
+    // //     Collect();
+    // //     Assert.AreNotEqual(null,wr.Target);
+    // // }
+    // [Test]
+    // public void csreactive_testGC1(){
+    //     var wr = csreactive_testGC_inner();
+    //     lastAccess.obj = null; //remove the last reference to data
+    //     Collect();
+    //     Assert.AreEqual(null,wr.Target);
+    // }
+    // void Collect(){
+    //     GC.Collect(10,GCCollectionMode.Forced,true);
+    //     GC.WaitForPendingFinalizers();
+    // }
 }

@@ -42,7 +42,7 @@ namespace com.bbbirder
             public Action effect;
             public Action normalEffect;
             public Func<bool> lifeCheckFunc;
-            public Dictionary<IWatched, HashSet<string>> deps = new();
+            public HashSet<HashSet<WatchScope>> deps = new();
             // public PooledDictionary<IWatched,PooledSet<string>> deps = new();
             // public Dictionary<IWatched, Action<object,string,object,object>> setters = new();
             public WatchScope(Action effect):this(effect,null) {
@@ -67,18 +67,18 @@ namespace com.bbbirder
             /// <param name="obj"></param>
             /// <param name="name"></param>
             /// <returns>是否成功，已存在则不成功</returns>
-            public bool AddDeps(IWatched obj,string name){
-                var isSuccess = false;
-                if(!deps.ContainsKey(obj)){
-                    deps[obj] = new();
-                }
-                isSuccess = !deps[obj].Contains(name);
-                deps[obj].Add(name);
-                return isSuccess;
-            }
-            public bool HasDeps(IWatched obj,string key){
-                return deps.ContainsKey(obj) && deps[obj].Contains(key);
-            }
+            // public bool AddDeps(IWatched obj,string name){
+            //     var isSuccess = false;
+            //     if(!deps.ContainsKey(obj)){
+            //         deps[obj] = new();
+            //     }
+            //     isSuccess = !deps[obj].Contains(name);
+            //     deps[obj].Add(name);
+            //     return isSuccess;
+            // }
+            // public bool HasDeps(IWatched obj,string key){
+            //     return deps.ContainsKey(obj) && deps[obj].Contains(key);
+            // }
             internal void SetDirty(){
                 dirty = true;
                 willDirtyScopes.Add(this);
@@ -134,14 +134,16 @@ namespace com.bbbirder
                 void ClearDependencies(){
                     foreach (var dep in deps)
                     {
-                        var obj = dep.Key;
-                        var set = dep.Value;
-                        foreach(var k in set){
-                            GetWatchScopes(obj,k).Remove(this);
-                        }
+                        // var obj = dep.Key;
+                        // var set = dep.Value;
+                        // foreach(var k in set){
+                        //     GetWatchScopes(obj,k).Remove(this);
+                        // }
+                        dep.Remove(this);
                         // GetWatchScopes(obj).Remove(this);
-                        set.Clear();
+                        // set.Clear();
                     }
+                    deps.Clear();
                 }
             }
             
