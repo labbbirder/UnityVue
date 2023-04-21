@@ -4,6 +4,7 @@ Unity纯C#版的VUE，运行时0GC。
 实现了几乎所有VUE特性，自行简单封装后可以无缝对接FGUI、UGUI、UTK等几乎所有UI方案
 * 理论上支持全平台
 * 运行时无GC
+* 递归代理
 * 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
 * 支持List、Array等数组成员
 * 更新时机 : LateUpdate(post) & Immediate(sync)
