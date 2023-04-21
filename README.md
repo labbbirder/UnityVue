@@ -7,7 +7,10 @@ Unity纯C#版的VUE，运行时0GC。
 * 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
 * 出现循环读写情况时，控制台会输出警告
 * 支持List、Array等数组成员
-* post & sync
+* 更新时机 : LateUpdate(post) & Immediate(sync)
+* 代理函数: Reactive & Ref
+* 绑定函数: Watch & Compute & WatchEffect & Bind
+* MonoBehaviour响应式
 
 其他功能
 * 数据可视化调试
@@ -50,4 +53,4 @@ data.name = "bbbirder";
 DynamicExpresso.dll并非官方原版，不要盲目更新它。此程序集在官方的基础上做了一些改动，已使其支持WebGL
 
 **为什么需要DynamicExpresso？**
-DynamicExpresso可以用在响应式组件或GameObject上，如：在Inspector下，给一个Component赋字符串表达式
+DynamicExpresso可以用在响应式组件或GameObject上，如：在Inspector下，给一个Component的字段赋字符串表达式
