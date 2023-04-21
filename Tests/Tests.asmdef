@@ -4,14 +4,16 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "com.bbbirder.csreactive"
+        "com.bbbirder.csreactive",
+        "Sirenix.OdinInspector.Modules.UnityMathematics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "Sirenix.OdinInspector.Attributes.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [
