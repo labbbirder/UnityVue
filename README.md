@@ -1,7 +1,7 @@
 # CSReactive
 Unity纯C#版的VUE，运行时0GC。
 ## FEATURES
-实现了几乎所有VUE特性
+实现了几乎所有VUE特性，自行简单封装后可以无缝对接FGUI、UGUI、UTK等几乎所有UI方案
 * 理论上支持全平台
 * 运行时无GC
 * 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
@@ -19,7 +19,7 @@ Unity纯C#版的VUE，运行时0GC。
 * 作用域可以与任意一个引用类型绑定，同生命周期
 
 限制
-* 数据源不支持字典、集合等其他容器，可以实现后提PR
+* 数据源暂不支持字典、集合等其他容器，可以自行实现后提PR
 ## INSTALL
 PackageManager下用git url安装：https://github.com/labbbirder/CSReactive.git
 ## QUICK START
