@@ -46,4 +46,8 @@ WatchEffect(()=>{
 data.name = "bbbirder";
 ```
 ### NOTES
+#### DynamicExpresso
 DynamicExpresso.dll并非官方原版，不要盲目更新它。此程序集在官方的基础上做了一些改动，已使其支持WebGL
+
+**为什么需要DynamicExpresso？**
+DynamicExpresso可以用在响应式组件或GameObject上，如：在Inspector下，给一个Component赋字符串表达式
