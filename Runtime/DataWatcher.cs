@@ -100,7 +100,7 @@ namespace com.bbbirder
                 }
                 return this;
             }
-            public void RunEffect()
+            public void RunEffect(bool invokeNormalEffect = true)
             {
                 dirty = false;
                 if(lifeCheckFunc!=null&&lifeCheckFunc()==false){
@@ -125,7 +125,7 @@ namespace com.bbbirder
                 activeScope = null;
                 scopeStackDepth-=1;
 
-                normalEffect?.Invoke();
+                if(invokeNormalEffect) normalEffect?.Invoke();
 
 
                 
@@ -207,7 +207,7 @@ namespace com.bbbirder
                 () => { prev=curr;curr=wf(); },
                 () => effect(curr,prev)
             );
-            // scp.RunEffect();
+            scp.RunEffect(false);
             return scp;
         }
         public static WatchScope Watch<T>(Func<T> wf,Func<object,T,T> effect){
