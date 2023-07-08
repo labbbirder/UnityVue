@@ -5,24 +5,36 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 
-internal partial class Installer
-{
-    const string ExportPath = "Assets/Plugins/com.bbbirder.csreactive";
-    static string AssetGUID = "f45c27409355d4b40891fc219f340827";
-    [MenuItem("Tools/bbbirder/Install CSReactive")]    
-    static void InstallUnityPackage()
+namespace com.bbbirder.unityeditor{
+    internal class Installer:RoslynUpdater
     {
-        if(!Directory.Exists(ExportPath)){
-            var assetPath = AssetDatabase.GUIDToAssetPath(AssetGUID);
-            AssetDatabase.ImportPackage(assetPath,false);
+        static string SourceDllPath =
+            Path.Join(PackageUtils.GetPackagePath(),"VSProj~/OnChange.sg.dll");
+        static Installer m_Instance;
+        static Installer Instance => m_Instance ??= new();
+        static bool entered = false;
+        private Installer():base(SourceDllPath)
+        {
+
+        }
+        [InitializeOnLoadMethod]
+        static void Setup()
+        {
+            bool isFocus = InternalEditorUtility.isApplicationActive;
+            EditorApplication.update += ()=>{
+                var cur = InternalEditorUtility.isApplicationActive;
+                if(!isFocus && cur)  OnEditorFocus();
+                isFocus = cur;
+            };
+
+            OnEditorFocus();
+        }
+        
+        static void OnEditorFocus(){
+            //not reenterable
+            if(entered) return;
+            entered = Instance.RunWorkFlow();
         }
     }
 
-}
-
-partial class Installer:AssetPostprocessor{
-    const bool AutoInstall = true;
-    static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths) {
-        if(AutoInstall) InstallUnityPackage();
-    }
 }
