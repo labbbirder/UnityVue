@@ -9,7 +9,7 @@ namespace com.bbbirder.unityeditor{
     internal class Installer:RoslynUpdater
     {
         static string SourceDllPath =
-            Path.Join(PackageUtils.GetPackagePath(),"VSProj~/OnChange.sg.dll");
+            Path.Join(PackageUtils.GetPackagePath(),"VSProj~/OnChange.SG.dll");
         static Installer m_Instance;
         static Installer Instance => m_Instance ??= new();
         static bool entered = false;
