@@ -22,8 +22,8 @@ var result = 0;
 A Fpp1() {
     return new A();
 }
-//var data = DataMaker.Reactive(Fpp1());
-//var wa = DataMaker.Reactive(new Player());
+var data = DataMaker.Reactive(Fpp1());
+var wa = DataMaker.Reactive(new Player());
 var doo = DataMaker.Reactive(new Doo());
 
 //doo.ints.Add(1);

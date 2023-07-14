@@ -20,6 +20,7 @@ namespace com.bbbirder.onchange
             public bool isTail;
             public bool canWrite;
             public string type;
+            public string rawType;
             public string name;
             public bool isList;
             public string elementType;
@@ -101,6 +102,7 @@ namespace com.bbbirder.onchange
                 else {
                     continue;
                 }
+                var rawType = type.ToString();
                 var typename = type.ToString();
                 var namedType = type as INamedTypeSymbol;
                 isWatched = namedType != null && type.OriginalDefinition.IsWatched();
@@ -150,6 +152,7 @@ namespace com.bbbirder.onchange
                 memberList.Add(new DeclarationInfo.MemberInfo {
                     name = member.Name,
                     type = typename,
+                    rawType = rawType,
                     canWrite = canWrite,
                     isTail = isTail,
                     isList = isList,
@@ -219,7 +222,7 @@ namespace com.bbbirder.onchange
             }
             catch (Exception e)
             {
-
+                context.ReportDiagnostic(Diagnostic.Create(RuleBadInvoke,null, e));
                 try{
                     File.WriteAllText("./proxy.log", logs+"\n"+e.ToString());
                 }
