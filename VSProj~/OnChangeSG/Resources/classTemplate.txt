@@ -93,17 +93,19 @@ using com.bbbirder;
 		public static implicit operator {{target_name}}({{src_name}} raw){
 			var ret = new {{target_name}}();//(raw);
 			ret.__InitWithRawData(raw);
-			CSReactive.DataMaker.OnMakeData(ret);
+			//CSReactive.DataMaker.OnMakeData(ret);
 			return ret;
-		}
-		{{~ else ~}}
-		public {{target_name}}(){
-			{{~ if write_back ~}}
-			__rawObject = System.Activator.CreateInstance(typeof({{src_name}}));
-			{{~ end ~}}
 		}
 		{{~ end ~}}
 		
+		public {{target_name}}(){
+			{{~ if write_back ~}}
+			var raw = System.Activator.CreateInstance(typeof({{src_name}}));
+			this.__InitWithRawData(raw);
+			{{~ end ~}}
+			CSReactive.DataMaker.OnMakeData(this);
+		}
+
 		public object this[string key]{
 			get {
 				{{~ for m in members ~}}
