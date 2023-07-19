@@ -1,13 +1,9 @@
 {
   "name": "com.bbbirder.csreactive",
+  "description": "纯C#下实现的面向数据模块",
   "displayName": "csreactive",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
-  "subtree": "CSReactive",
-  "scripts": {
-    "tpush": "node ../../scripts/tpush.mjs",
-    "tpull": "node ../../scripts/tpull.mjs"
-  },
-  "gitHead": "df58d9b50ee242d0da249604f3905fd12e183260"
+  "subtree": "CSReactive"
 }
