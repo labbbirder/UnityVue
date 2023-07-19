@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using com.bbbirder;
 public class ReactiveList<T> : IEnumerable<T>,IList<T>,IList,IWatched
@@ -62,7 +63,11 @@ public class ReactiveList<T> : IEnumerable<T>,IList<T>,IList,IWatched
 		innerArray = new T[Capacity];
 		foreach(var ele in StartArray){
 			EnsureCapacity(-~Count);
-			this[Count] = (T)ele;
+			if(ele is T t){
+				this[Count] = t;
+			}else{
+				this[Count] = TypeUtils.CastTo<T>(ele);
+			}
 			Count++;
 		}
 		Capacity = innerArray.Length;
@@ -94,7 +99,6 @@ public class ReactiveList<T> : IEnumerable<T>,IList<T>,IList,IWatched
 		// }
 		// Capacity = innerArray.Length;
     }
-
 	private void Initialize ()
 	{
 		
