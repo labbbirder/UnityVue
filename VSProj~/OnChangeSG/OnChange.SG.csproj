@@ -26,6 +26,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="LowAccessibility.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>LowAccessibility.resx</DependentUpon>
+    </Compile>
+    <Compile Update="NotGenerated.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>NotGenerated.resx</DependentUpon>
+    </Compile>
     <Compile Update="templ.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -34,6 +44,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Update="LowAccessibility.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>LowAccessibility.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="NotGenerated.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>NotGenerated.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <EmbeddedResource Update="templ.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>templ.Designer.cs</LastGenOutput>

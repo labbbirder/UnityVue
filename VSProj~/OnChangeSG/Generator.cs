@@ -50,10 +50,19 @@ namespace com.bbbirder.onchange
     [Generator]
     public class OnChangeGenerator : ISourceGenerator
     {
-        internal static DiagnosticDescriptor RuleBadInvoke = new DiagnosticDescriptor("BB001", "调用错误", "不正常的调用", "ErrorInvocation", DiagnosticSeverity.Error, true);
-        internal static DiagnosticDescriptor RuleAccessibility = new DiagnosticDescriptor("BB002", "low accessibility", "data type for {0} should have an accessibility of internal or public", "ErrorInvocation", DiagnosticSeverity.Error, true);
         const string ValidAssemblyName = "com.bbbirder.csreactive";
         const string WatchableAttrName = "com.bbbirder.WatchableAttribute";
+        readonly DiagnosticDescriptor LowAccessibilityDescriptor = new(
+            LowAccessibility.AnalyzerID,
+            LowAccessibility.AnalyzerTitle,
+            LowAccessibility.AnalyzerMessageFormat,
+            "bbbirder", DiagnosticSeverity.Error, true);
+        readonly DiagnosticDescriptor NotGeneratedDescriptor = new(
+            NotGenerated.AnalyzerID,
+            NotGenerated.AnalyzerTitle,
+            NotGenerated.AnalyzerMessageFormat,
+            "bbbirder", DiagnosticSeverity.Error, true);
+
         public void GetMembers(ITypeSymbol symbol, Dictionary<string, ISymbol> result, bool withBaseType)
         {
             if (symbol.BaseType is null) return; //omit primate types
@@ -233,8 +242,18 @@ namespace com.bbbirder.onchange
             {
 
                 var infoList = receiver.declarationList
-                    .Select(d => GetDeclarationInfo(context, d))
-                    .Where(d => d != null)
+                    .Select(d => (d,GetDeclarationInfo(context, d)))
+                    .Where(d => d.Item2.HasValue)
+                    .Select(tp =>
+                    {
+                        var (d, di) = tp;
+                        if (di.Value.accessibility == "private")
+                        {
+                            context.ReportDiagnostic(Diagnostic.Create(LowAccessibilityDescriptor, d.GetLocation()));
+                            throw new(LowAccessibilityDescriptor.Title.ToString());
+                        }
+                        return di;
+                    })
                     .OfType<DeclarationInfo>()
                     .Distinct()
                     .ToList();
@@ -262,7 +281,7 @@ namespace com.bbbirder.onchange
             }
             catch (Exception e)
             {
-                context.ReportDiagnostic(Diagnostic.Create(RuleBadInvoke, null, e));
+                context.ReportDiagnostic(Diagnostic.Create(NotGeneratedDescriptor, null, e));
                 try
                 {
                     File.WriteAllText("./proxy.log", logs + "\n" + e.ToString());
