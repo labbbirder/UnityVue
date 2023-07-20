@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using com.bbbirder;
 {{ (target_namespace | string.empty) ? "" : "namespace "+target_namespace+"{" }}
-	public partial class {{target_name}}:IWatched{
+	{{accessibility}} partial class {{target_name}}:IWatched{
         public Action<object, string> onSetProperty { get; set; }
         public Action<object, string> onGetProperty { get; set; }
 
@@ -40,7 +40,7 @@ using com.bbbirder;
 		[Sirenix.OdinInspector.ShowInInspector]
 		#endif
 		{{m.comment}}
-		public {{m.type}} @{{m.name}}{
+		{{m.accessibility}} {{m.type}} @{{m.name}}{
 			get {
 				{{~ if m.is_list ~}}
 					__inner_{{m.name}}??=new(__rawObject?.{{m.name}});
@@ -151,7 +151,7 @@ using com.bbbirder;
 
 namespace com.bbbirder{
 	public static partial class DataExtension{
-		public static {{target_ns_part+target_name}} Reactive(this CSReactive.__Internal_Maker __maker,{{src_name}} __data){
+		{{accessibility}} static {{target_ns_part+target_name}} Reactive(this CSReactive.__Internal_Maker __maker,{{src_name}} __data){
 			var __watched_obj = new {{target_ns_part+target_name}}();
 			__watched_obj.__InitWithRawData(__data);
 			__maker.OnMakeData(__watched_obj);

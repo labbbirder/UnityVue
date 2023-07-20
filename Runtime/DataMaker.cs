@@ -94,10 +94,10 @@ namespace com.bbbirder{
             // {
             //     return OnMakeData(new __ReactiveData<T>(data));
             // }
-            //public T Reactive<T>(T raw)
-            //{
-            //    throw new Exception($"生成失败，或未给类型{typeof(T).Name}添加Watchable属性");
-            //}
+            // public object Reactive(object raw)
+            // {
+            //    throw new Exception($"生成失败，或未给类型{raw.GetType()}添加Watchable属性");
+            // }
             public __RefData<T> Ref<T>(T value)
             {
                 return OnMakeData(new __RefData<T>(value));

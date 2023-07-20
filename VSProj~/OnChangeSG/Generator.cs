@@ -15,10 +15,13 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace com.bbbirder.onchange
 {
-    public struct DeclarationInfo:IEquatable<DeclarationInfo> {
-        public struct MemberInfo {
+    public struct DeclarationInfo : IEquatable<DeclarationInfo>
+    {
+        public struct MemberInfo
+        {
             public bool isTail;
             public bool canWrite;
+            public string accessibility;
             public string type;
             public string rawType;
             public string name;
@@ -29,6 +32,7 @@ namespace com.bbbirder.onchange
             public bool isWatched;
             //public string modifiers;
         }
+        public string accessibility;
         public string target_name;
         public string target_ns_part;
         public string target_namespace;
@@ -38,35 +42,43 @@ namespace com.bbbirder.onchange
         public string modulename;
         public MemberInfo[] members;
 
-        public bool Equals(DeclarationInfo other) {
+        public bool Equals(DeclarationInfo other)
+        {
             return target_name == other.target_name && modulename == other.modulename;
         }
     }
     [Generator]
     public class OnChangeGenerator : ISourceGenerator
     {
-        internal static DiagnosticDescriptor RuleBadInvoke = new DiagnosticDescriptor("CSReactive", "调用错误", "不正常的调用", "ErrorInvocation", DiagnosticSeverity.Error, true);
+        internal static DiagnosticDescriptor RuleBadInvoke = new DiagnosticDescriptor("BB001", "调用错误", "不正常的调用", "ErrorInvocation", DiagnosticSeverity.Error, true);
+        internal static DiagnosticDescriptor RuleAccessibility = new DiagnosticDescriptor("BB002", "low accessibility", "data type for {0} should have an accessibility of internal or public", "ErrorInvocation", DiagnosticSeverity.Error, true);
         const string ValidAssemblyName = "com.bbbirder.csreactive";
         const string WatchableAttrName = "com.bbbirder.WatchableAttribute";
-        public void GetMembers(ITypeSymbol symbol, Dictionary<string, ISymbol> result, bool withBaseType) {
+        public void GetMembers(ITypeSymbol symbol, Dictionary<string, ISymbol> result, bool withBaseType)
+        {
             if (symbol.BaseType is null) return; //omit primate types
-            if (withBaseType) {
+            if (withBaseType)
+            {
                 GetMembers(symbol.BaseType, result, withBaseType);
             }
-            foreach (var member in symbol.GetMembers()) {
+            foreach (var member in symbol.GetMembers())
+            {
                 result[member.Name] = member;
             }
         }
-        public AttributeData GetAttributeData(INamedTypeSymbol symbol,string attributeName) {
+        public AttributeData GetAttributeData(INamedTypeSymbol symbol, string attributeName)
+        {
 
-            if (symbol == null) return null ;
-            var attr = symbol.GetAttributes().Where(a => {
+            if (symbol == null) return null;
+            var attr = symbol.GetAttributes().Where(a =>
+            {
                 var name = a.AttributeClass.ToString();
                 return name == attributeName;
-                }).FirstOrDefault();
+            }).FirstOrDefault();
             return attr;
         }
-        internal DeclarationInfo? GetDeclarationInfo(GeneratorExecutionContext context, TypeDeclarationSyntax cds) {
+        internal DeclarationInfo? GetDeclarationInfo(GeneratorExecutionContext context, TypeDeclarationSyntax cds)
+        {
             var model = GetModel(context, cds);
             var symbol = model.GetDeclaredSymbol(cds);
             var attr = GetAttributeData(symbol, WatchableAttrName);
@@ -80,33 +92,53 @@ namespace com.bbbirder.onchange
             var memberList = new List<DeclarationInfo.MemberInfo>();
             GetMembers(symbol, memberDict, true);
 
-            foreach(var member in memberDict.Values) {
+            var classAccessibility = symbol.DeclaredAccessibility switch
+            {
+                Accessibility.Public => "public",
+                Accessibility.Internal => "internal",
+                _ => "private"
+            };
 
+            foreach (var member in memberDict.Values)
+            {
                 var canWrite = true;
                 var isTail = true;
                 var isWatched = false;
                 var elementType = "";
                 var isList = false;
                 ITypeSymbol type = null;
-                if (!f_non_public && member.DeclaredAccessibility != Accessibility.Public) continue;
+
+                var accessibility = member.DeclaredAccessibility switch
+                {
+                    Accessibility.Public => "public",
+                    Accessibility.Internal => "internal",
+                    _ => null
+                };
+                if (accessibility is null) continue;
+                
                 if (member.IsStatic) continue;
                 if (member.IsImplicitlyDeclared) continue;
 
-                if (member is IFieldSymbol fld) {
+                if (member is IFieldSymbol fld)
+                {
                     type = fld.Type;
-                }else
-                if(member is IPropertySymbol prop) {
+                }
+                else
+                if (member is IPropertySymbol prop)
+                {
                     canWrite = prop.SetMethod != null;
                     type = prop.Type;
                 }
-                else {
+                else
+                {
                     continue;
                 }
                 var rawType = type.ToString();
                 var typename = type.ToString();
                 var namedType = type as INamedTypeSymbol;
                 isWatched = namedType != null && type.OriginalDefinition.IsWatched();
-                if (isWatched) {
+                if (isWatched)
+                {
                     isTail = false;
                 }
                 isList = type.IsIEnumerator();
@@ -118,21 +150,24 @@ namespace com.bbbirder.onchange
                     {
                         elementType = eleType.GetName(
                             OnChange.SG.Extensions.NameParts.Namespace |
-                            OnChange.SG.Extensions.NameParts.Generic, 
+                            OnChange.SG.Extensions.NameParts.Generic,
                             s => "Watched" + s);
                     }
                 }
 
-                
-                if (isWatched) {
+
+                if (isWatched)
+                {
                     var name = "";
-                    if (!type.ContainingNamespace.IsGlobalNamespace) {
+                    if (!type.ContainingNamespace.IsGlobalNamespace)
+                    {
                         name += type.ContainingNamespace.ToString() + ".";
                     }
                     name += "Watched" + type.Name;
-                    if (namedType.TypeArguments.Length > 0) {
-                        
-                        name += "<"+ string.Join(",",namedType.TypeArguments) +">";
+                    if (namedType.TypeArguments.Length > 0)
+                    {
+
+                        name += "<" + string.Join(",", namedType.TypeArguments) + ">";
                     }
                     typename = name;
                 }
@@ -149,7 +184,9 @@ namespace com.bbbirder.onchange
                 var comment = string.Join("\n", trivias);
 
                 //var types = namedType.TypeArguments.ToString();
-                memberList.Add(new DeclarationInfo.MemberInfo {
+                memberList.Add(new DeclarationInfo.MemberInfo
+                {
+                    accessibility = accessibility,
                     name = member.Name,
                     type = typename,
                     rawType = rawType,
@@ -163,12 +200,15 @@ namespace com.bbbirder.onchange
                 });
             }
             var targetname = "Watched" + symbol.Name;
-            if(symbol is INamedTypeSymbol nt && nt.TypeArguments.Length>0) {
+            if (symbol is INamedTypeSymbol nt && nt.TypeArguments.Length > 0)
+            {
                 targetname += $"<{string.Join(",", nt.TypeParameters)}>";
             }
-            return new DeclarationInfo {
+            return new DeclarationInfo
+            {
+                accessibility = classAccessibility,
                 src_name = symbol.ToString(),
-                target_ns_part = symbol.ContainingNamespace.IsGlobalNamespace ? "" : (symbol.ContainingNamespace.ToString()+"."),
+                target_ns_part = symbol.ContainingNamespace.IsGlobalNamespace ? "" : (symbol.ContainingNamespace.ToString() + "."),
                 target_name = targetname,
                 target_namespace = symbol.ContainingNamespace.IsGlobalNamespace ? "" : symbol.ContainingNamespace.ToString(),
                 target_simplename = symbol.Name,
@@ -214,7 +254,7 @@ namespace com.bbbirder.onchange
                 {
                     var targetFileName = $"{info.target_namespace.Replace('.', '_')}_{info.target_simplename}.g.cs";
                     var content = template.Render(info);
-                    logs += targetFileName+"\n";
+                    logs += targetFileName + "\n";
                     //context.ParseOptions.WithDocumentationMode(DocumentationMode.Diagnose);
                     context.AddSource(targetFileName, content);
                 }
@@ -222,9 +262,10 @@ namespace com.bbbirder.onchange
             }
             catch (Exception e)
             {
-                context.ReportDiagnostic(Diagnostic.Create(RuleBadInvoke,null, e));
-                try{
-                    File.WriteAllText("./proxy.log", logs+"\n"+e.ToString());
+                context.ReportDiagnostic(Diagnostic.Create(RuleBadInvoke, null, e));
+                try
+                {
+                    File.WriteAllText("./proxy.log", logs + "\n" + e.ToString());
                 }
                 catch { }
                 throw;
