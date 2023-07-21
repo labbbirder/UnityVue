@@ -2,7 +2,7 @@
   "name": "com.bbbirder.csreactive",
   "description": "纯C#下实现的面向数据模块",
   "displayName": "csreactive",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
   "subtree": "CSReactive"
