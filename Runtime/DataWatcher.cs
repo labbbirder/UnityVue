@@ -175,13 +175,13 @@ namespace com.bbbirder
                 // }
             }
         }
-        public static int scopeStackDepth = 0;
-        public static WatchScope activeScope = null;
+        internal static int scopeStackDepth = 0;
+        internal static WatchScope activeScope = null;
         // public static HashSet<WatchScope> scopeStack = new();
-        public static HashSet<WatchScope> dirtyScopes = new();
-        public static HashSet<WatchScope> willDirtyScopes = new();
+        internal static HashSet<WatchScope> dirtyScopes = new();
+        internal static HashSet<WatchScope> willDirtyScopes = new();
         public struct DataAccess{
-            public IWatched obj;
+            public object obj;
             public string name;
         }
         public static DataAccess lastAccess = new ();

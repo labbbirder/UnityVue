@@ -15,13 +15,13 @@ public class ReactiveList<T> : IEnumerable<T>,IList<T>,IList,IWatched
 	public bool IsReadOnly => false;
 	int _Count;
 	public int Count {get{
-		onGetProperty?.Invoke(this,nameof(Count));
+		onGetProperty?.Invoke(innerArray,nameof(Count));
 		return _Count;
 	} private set{
 		// var prev = _Count;
 		if(_Count==value) return;
 		_Count = value;
-		onSetProperty?.Invoke(this,nameof(Count));
+		onSetProperty?.Invoke(innerArray,nameof(Count));
 	}} 
 	public int Capacity = DefaultCapacity;
 	public bool IsValueType { get; private set;}
@@ -219,14 +219,14 @@ public class ReactiveList<T> : IEnumerable<T>,IList<T>,IList,IWatched
 
 	public T this [int index] {
 		get {
-			onGetProperty?.Invoke(this,index.ToString());
+			onGetProperty?.Invoke(innerArray,index.ToString());
 			return innerArray [index];
 		}
 		set {
 			var prev = innerArray.ElementAtOrDefault(index);
 			if(EqualityComparer<T>.Default.Equals(prev,value)) return;
 			innerArray [index] = value;
-			onSetProperty?.Invoke(this,index.ToString());
+			onSetProperty?.Invoke(innerArray,index.ToString());
 		}
 	}
 

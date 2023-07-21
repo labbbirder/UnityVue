@@ -10,24 +10,10 @@ using com.bbbirder;
         public Action<object, string> onSetProperty { get; set; }
         public Action<object, string> onGetProperty { get; set; }
 
-		{{~ if write_back ~}}
 		public {{src_name}} __rawObject { get; private set; }
-		{{~ else ~}}
-		//public Dictionary<string,object> __innerData = new();
-		{{~ end ~}}
-
 
 
 		{{~ for m in members ~}}
-		{{
-
-		}}
-		{{~ if m.is_static ~}}
-
-
-
-
-		{{~ else ~}} // instance member
 		
 		{{~ if m.is_list ~}}
 		{{m.type = "ReactiveList<"+m.element_type+">"}}
@@ -36,23 +22,23 @@ using com.bbbirder;
 		{{m.type}} __inner_{{m.name}};
 		{{~ end ~}}
 
+		{{m.comment}}
 		#if ODIN_INSPECTOR
 		[Sirenix.OdinInspector.ShowInInspector]
 		#endif
-		{{m.comment}}
 		{{m.accessibility}} {{m.type}} @{{m.name}}{
 			get {
 				{{~ if m.is_list ~}}
 					__inner_{{m.name}}??=new(__rawObject?.{{m.name}});
-					onGetProperty?.Invoke(this,"{{m.name}}");
+					onGetProperty?.Invoke(__rawObject,"{{m.name}}");
 					return __inner_{{m.name}};
 				{{~ else ~}}
 					{{~ if m.is_watched ~}}
 					__inner_{{m.name}} ??= __rawObject.{{m.name}};
-					onGetProperty?.Invoke(this,"{{m.name}}");
+					onGetProperty?.Invoke(__rawObject,"{{m.name}}");
 					return __inner_{{m.name}};
 					{{~ else ~}}
-					onGetProperty?.Invoke(this,"{{m.name}}");
+					onGetProperty?.Invoke(__rawObject,"{{m.name}}");
 					return __rawObject.{{m.name}};
 					{{~ end ~}}
 				{{~ end ~}}
@@ -63,16 +49,16 @@ using com.bbbirder;
 					if(__rawObject !=null && __rawObject.{{m.name}}.Equals(value)) return;
 					var prev = __inner_{{m.name}};
 					__inner_{{m.name}}=new(value);
-					onSetProperty?.Invoke(this,"{{m.name}}");
+					onSetProperty?.Invoke(__rawObject,"{{m.name}}");
 				{{~ else ~}}
 					{{~ if m.is_watched ~}}
 					__inner_{{m.name}} = value;
 					__rawObject.{{m.name}} = value.__rawObject;
-					onSetProperty?.Invoke(this,"{{m.name}}");
+					onSetProperty?.Invoke(__rawObject,"{{m.name}}");
 					{{~ else ~}}
 					if(__rawObject.{{m.name}}==value) return;
 					__rawObject.{{m.name}} = value;
-					onSetProperty?.Invoke(this,"{{m.name}}");
+					onSetProperty?.Invoke(__rawObject,"{{m.name}}");
 					{{~ end ~}}
 				{{~ end ~}}
 			}
@@ -80,24 +66,21 @@ using com.bbbirder;
 		}
 
 
-		{{~ end ~}}//end static check
-		{{~ end ~}}//end member
+		{{~ end ~}}
 
 		public void __InitWithRawData(object raw){
 			__rawObject = ({{src_name}})raw;
 		}
-		{{~ if write_back ~}}
-		//public {{target_name}}(object raw){
-		//	__rawObject = ({{src_name}})raw;
-		//}
+
+		// Implicit Type Cast
 		public static implicit operator {{target_name}}({{src_name}} raw){
 			var ret = new {{target_name}}();//(raw);
 			ret.__InitWithRawData(raw);
 			//CSReactive.DataMaker.OnMakeData(ret);
 			return ret;
 		}
-		{{~ end ~}}
 		
+		// Default Constructor
 		public {{target_name}}(){
 			{{~ if write_back ~}}
 			var raw = System.Activator.CreateInstance(typeof({{src_name}}));
@@ -109,36 +92,27 @@ using com.bbbirder;
 		public object this[string key]{
 			get {
 				{{~ for m in members ~}}
-				{{~ if !is_static ~}}
-				{{
-				src_fld  = write_back ? ((is_static ? target_name :"__rawObject")+"."+m.name) : ("__inner_"+m.name)
-				}}
 				if(key.Equals("{{m.name}}")){
-					onGetProperty?.Invoke(this,"{{m.name}}");
-					return (object){{src_fld}};
+					{{~ if m.can_write ~}}
+					onGetProperty?.Invoke(__rawObject,"{{m.name}}");
+					{{~ end ~}}
+					return (object)__rawObject.{{m.name}};
 				}
-				{{~ end ~}}
 				{{~ end ~}}
 				return null;
 			}
 			set {
 				{{~ for m in members ~}}
-				{{~ if !is_static ~}}
-				{{
-				src_fld  = write_back ? ((is_static ? target_name :"__rawObject")+"."+m.name) : ("__inner_"+m.name)
-				}}
 				if(key.Equals("{{m.name}}")){
 					{{~ if !m.can_write ~}}
 					throw new Exception($"cannot set member {key}, it is readonly");
 					{{~else~}}
-					if(!(value is {{m.raw_type}} __v) || {{src_fld}}==__v) return;
-					//var prev = {{src_fld}};
-					{{src_fld}} = __v;
-					onSetProperty?.Invoke(this,"{{m.name}}");
+					if(!(value is {{m.raw_type}} __v) || __rawObject.{{m.name}}==__v) return;
+					__rawObject.{{m.name}} = __v;
+					onSetProperty?.Invoke(__rawObject,"{{m.name}}");
 					return;
 					{{~ end ~}}
 				}
-				{{~ end ~}}
 				{{~ end ~}}
 				throw new Exception($"cannot set member {key}, no such member in type {{src_name}}");
 			}

@@ -11,7 +11,13 @@ using UnityEngine.Assertions;
 using UnityEngine.Profiling;
 
 namespace com.bbbirder{
-
+    public static partial class DataExtension{
+        
+        [Obsolete("argument of Reactive is not a watched type",false)]
+		public static T Reactive<T>(this CSReactive.__Internal_Maker __maker,T __data){
+            throw new ($"{typeof(T)} is not a watched type");
+		}
+    }
     public partial class CSReactive
     {
         // #if UNITY_2023_3_OR_NEWER
@@ -38,10 +44,9 @@ namespace com.bbbirder{
                 var dataDeps = new Dictionary<string,HashSet<WatchScope>>();
                 var tempScopes = new WatchScope[4];
                 data.onGetProperty = (object obj,string key)=>{
-                    var watched = obj as IWatched;
-                    Assert.IsNotNull(watched,"data should be IWatched");
+                    
                     // Profiler.BeginSample("update deps");
-                    lastAccess.obj = watched;
+                    lastAccess.obj = obj;
                     lastAccess.name = key;
                     var scp = activeScope;
                     if(scp!=null){
@@ -52,9 +57,6 @@ namespace com.bbbirder{
                     // Profiler.EndSample();
                 };
                 data.onSetProperty = (object obj,string key)=>{
-                    var watched = obj as IWatched;
-                    Assert.IsNotNull(watched,"data should be IWatched");
-
                     var relevantScopes = GetWatchScopes(key);
                     if(relevantScopes.Count>tempScopes.Length){
                         tempScopes = new WatchScope[relevantScopes.Count];
@@ -93,10 +95,6 @@ namespace com.bbbirder{
             // public dynamic ReactiveDynamic<T>(T data)
             // {
             //     return OnMakeData(new __ReactiveData<T>(data));
-            // }
-            // public object Reactive(object raw)
-            // {
-            //    throw new Exception($"生成失败，或未给类型{raw.GetType()}添加Watchable属性");
             // }
             public __RefData<T> Ref<T>(T value)
             {

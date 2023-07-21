@@ -12,15 +12,15 @@ using System.Linq;
 public class csreactive_test
 {
     [Watchable]
-    public class Data2{
-        public int vv;
+    internal class Data2{
+        internal int vv;
     }
     [Watchable]
-    public class Data1{
-        public int v = 2;
-        public string s = "asd";
-        public float f = 0.2f;
-        public List<Data2> d2list = new();
+    internal class Data1{
+        internal int v = 2;
+        internal string s = "asd";
+        internal float f = 0.2f;
+        internal List<Data2> d2list = new();
     }
     [Test]
     public void csreactive_testSimplePasses()
@@ -96,6 +96,42 @@ public class csreactive_test
         Assert.GreaterOrEqual(effect_cnt3,100);
 
     }
+
+    // [Test]
+    // public void csreactive_testRef(){
+    //     var data = new Data1();
+    //     var w1 = DataMaker.Reactive(data);
+    //     var w2 = DataMaker.Reactive(data);
+    //     var v = 0;
+    //     WatchEffect(()=>{
+            
+    //         Debug.Log("w1 set "+w1.v);
+    //         v = w1.v;
+    //     },flushMode:FlushMode.Immediate);
+    //     w2.v = 123;
+    //         Debug.Log("w2 set "+w1.v);
+    //     Assert.AreEqual(123,w1.v);
+    //     Assert.AreEqual(123,w2.v);
+    //     Assert.AreEqual(123,v);
+    // }
+
+    // [Test]
+    // public void csreactive_testRef(){
+    //     var data = new Data1();
+    //     var w1 = DataMaker.Reactive(data);
+    //     var w2 = DataMaker.Reactive(data);
+    //     var v = 0;
+    //     WatchEffect(()=>{
+            
+    //         Debug.Log("w1 set "+w1.v);
+    //         v = w1.v;
+    //     },flushMode:FlushMode.Immediate);
+    //     w2.v = 123;
+    //         Debug.Log("w2 set "+w1.v);
+    //     Assert.AreEqual(123,w1.v);
+    //     Assert.AreEqual(123,w2.v);
+    //     Assert.AreEqual(123,v);
+    // }
     // WeakReference csreactive_testGC_inner(){
     //     var data = DataMaker.Reactive(new Data1());
     //     int flags = 0;
