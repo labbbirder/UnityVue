@@ -1,19 +1,17 @@
 using System;
 
 namespace com.bbbirder{
+    [AttributeUsage(AttributeTargets.Class)]
     public class WatchableAttribute:Attribute{
         public DataFlags flags;
         public WatchableAttribute(DataFlags flags = DataFlags.Default){
             this.flags = flags;
         }
     }
-    // public class NonNestedAttribute:Attribute{
-
-    // }
-    // public class NestedAttribute:Attribute{
+    [AttributeUsage(AttributeTargets.Property|AttributeTargets.Field|AttributeTargets.Event)]
+    public class NotWatched:Attribute{
         
-    // }
-    
+    }
     public enum DataFlags{
         Default = 0,
         // /// <summary>
@@ -28,9 +26,5 @@ namespace com.bbbirder{
         // /// whether generate nonpublic members
         // /// </summary>
         // NonPublic = 1<<2,
-        // /// <summary>
-        // /// whether write to the raw object when changed
-        // /// </summary>
-        // DontWriteBack = 1<<3,
     }
 }
