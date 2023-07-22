@@ -6,10 +6,9 @@ using System.Linq;
 
 namespace com.bbbirder{
 
-    [ExecuteInEditMode]
-    public class ScopeKeeper : MonoBehaviour
+    public class ReactiveManager : MonoBehaviour
     {
-        public static ScopeKeeper Instance;
+        public static ReactiveManager Instance;
         public Action onUpdate = CSReactive.WatchScope.UpdateDirtyScopes;
         
         void Awake(){
