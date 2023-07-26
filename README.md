@@ -1,3 +1,11 @@
+> For Audiences:
+> 
+> This repo is under an excellent refactor, which will be an extremely better one!
+> 
+> 此库正经历超赞的重构，现在也能用，未来会更好!
+> 
+> 🎉
+
 # CSReactive
 Unity纯C#版的VUE，运行时0GC。
 ## FEATURES
