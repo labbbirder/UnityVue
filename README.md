@@ -1,21 +1,15 @@
-> For Audiences:
-> 
-> This repo is under an excellent refactor, which will be an extremely better one!
-> 
-> 此库正经历超赞的重构，现在也能用，未来会更好!
-> 
-> 🎉
+# UnityVue
+> 此库是本人接下来时间的开发维护重点，原名：CSReactive
 
-# CSReactive
 Unity纯C#版的VUE，运行时0GC。
 ## FEATURES
 实现了几乎所有VUE特性，自行简单封装后可以无缝对接FGUI、UGUI、UTK等几乎所有UI方案
-* 理论上支持全平台
+* 支持全平台
 * 运行时无GC
 * 递归代理
 * 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
 * 支持List、Array等数组成员
-* 更新时机 : LateUpdate(post) & Immediate(sync)
+* 可自定义更新时机 : LateUpdate(post) & Immediate(sync)
 * 代理函数: Reactive & Ref
 * 绑定函数: Watch & Compute & WatchEffect & Bind
 * MonoBehaviour响应式
@@ -34,28 +28,60 @@ PackageManager下用git url安装：https://github.com/labbbirder/CSReactive.git
 ## QUICK START
 添加命名空间
 ```csharp
-using com.bbbirder;
-using static com.bbbirder.CSReactive;
+using BBBirder.UnityVue;
 ```
 
 定义一个类型
 ```csharp
-namespace YourNamespace{
-  [Watchable]
-  public class YourData{
-    public string name;
-  }
+using BBBirder.UnityVue;
+using Sirenix.OdinInspector;
+partial class CubeData : IDataProxy
+{
+    [ShowInInspector]
+    public float Length { get; set; } = 1;
+    [ShowInInspector]
+    public float Width { get; set; } = 1;
+    [ShowInInspector]
+    public float Height { get; set; } = 1;
+
+    [ShowInInspector]
+    public float Sum { get; set; }
+
+    [ShowInInspector]
+    public float Area { get; set; }
+
+    [ShowInInspector]
+    public float Volume { get; set; }
 }
 ```
 
 实现响应式
 ```csharp
-var data = DataMaker.Reactive(new YourNamespcae.YourData());
-var txtTips = "";
-WatchEffect(()=>{
-  txtTips = $"hello,{data.name}."
-});
-data.name = "bbbirder";
+using UnityEngine;
+
+[ExecuteAlways]
+partial class CubeData : MonoBehaviour
+{
+
+    void Awake()
+    {
+        CSReactive.Reactive(this);
+
+        this.WatchEffect(() =>
+        {
+            var halfArea = (Length * Width) + (Width * Height) + (Length * Height);
+            Area = halfArea * 2;
+        });
+
+        this.WatchEffect(() =>
+        {
+            Volume = Length * Width * Height;
+        });
+
+        this.Compute(() => Length + Width + Height, v => Sum = v);
+    }
+}
+
 ```
 ## NOTES
 ### DynamicExpresso
