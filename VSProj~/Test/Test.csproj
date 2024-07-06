@@ -6,8 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-	<ItemGroup>
-		<ProjectReference Include="..\com.bbbirder.csreactive\com.bbbirder.csreactive.csproj" />
-		<ProjectReference Include="..\OnChangeSG\OnChange.SG.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\BBBirder.UnityVue.csproj" />
+    <ProjectReference Include="..\UnityVue.SG\UnityVue.SG.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
 </Project>

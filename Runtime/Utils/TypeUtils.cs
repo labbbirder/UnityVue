@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 
-namespace com.bbbirder
+namespace BBBirder.UnityVue
 {
-    internal static class TypeUtils
+    public static class TypeUtils
     {
         const BindingFlags StaticBindingFlags = 0
             | BindingFlags.Static
@@ -16,10 +16,22 @@ namespace com.bbbirder
         static readonly object mi_resig_lock = new();
         static Dictionary<Type, Func<object, object>> s_casters = new();
         static MethodInfo s_method_resig;
-        internal static T CastTo<T>(object obj)
+
+        public static T CastTo<T>(object obj)
         {
-            return (T)GetCastDelegate(obj.GetType(), typeof(T))?.Invoke(obj);
+            return (T)CastTo(obj, typeof(T));
         }
+
+        public static object CastTo(object obj, Type targetType)
+        {
+            var caster = GetCastDelegate(obj.GetType(), targetType);
+            if (caster is null)
+            {
+                throw new ArgumentException($"Cannot cast from {obj.GetType()} to {targetType}.");
+            }
+            return caster.Invoke(obj);
+        }
+
         static Func<object, object> GetCastDelegate(this Type from, Type to)
         {
             try
@@ -40,12 +52,12 @@ namespace com.bbbirder
             {
                 return null;
             }
-            
+
             lock (mi_resig_lock)
             {
                 s_method_resig ??= typeof(TypeUtils).GetMethod(nameof(ResigFunc), StaticBindingFlags);
             }
-            
+
             var f = s_method_resig.MakeGenericMethod(from, to).Invoke(null, new[] { mi });
             if (f is null)
             {
@@ -64,7 +76,7 @@ namespace com.bbbirder
 
             return f as Func<object, object>;
         }
-        
+
         static Func<object, object> ResigFunc<T1, T2>(MethodInfo mi)
         {
             var func = mi.CreateDelegate(typeof(Func<T1, T2>)) as Func<T1, T2>;

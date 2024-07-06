@@ -5,35 +5,42 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 
-namespace com.bbbirder.unityeditor{
-    internal class Installer:RoslynUpdater
+namespace BBBirder.UnityEditor
+{
+    internal class Installer : RoslynUpdater
     {
         static string SourceDllPath =
-            Path.Join(PackageUtils.GetPackagePath(),"VSProj~/OnChange.SG.dll");
+            Path.Join(PackageUtils.GetPackagePath(), "VSProj~/UnityVue.SG.dll");
         static Installer m_Instance;
         static Installer Instance => m_Instance ??= new();
         static bool entered = false;
-        private Installer():base(SourceDllPath)
-        {
 
-        }
+        private Installer() : base(SourceDllPath) { }
+
         [InitializeOnLoadMethod]
         static void Setup()
         {
-            bool isFocus = InternalEditorUtility.isApplicationActive;
-            EditorApplication.update += ()=>{
-                var cur = InternalEditorUtility.isApplicationActive;
-                if(!isFocus && cur)  OnEditorFocus();
-                isFocus = cur;
+            bool isFocusPrev = false;
+            EditorApplication.update += () =>
+            {
+                var isFocus = InternalEditorUtility.isApplicationActive;
+                if (!isFocusPrev && isFocus) OnEditorFocus();
+                isFocusPrev = isFocus;
             };
 
             OnEditorFocus();
         }
-        
-        static void OnEditorFocus(){
+
+        static void OnEditorFocus()
+        {
             //not reenterable
-            if(entered) return;
+            if (entered) return;
             entered = Instance.RunWorkFlow();
+
+            if (File.Exists(SourceDllPath))
+            {
+                entered = false;
+            }
         }
     }
 

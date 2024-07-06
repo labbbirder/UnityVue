@@ -1,6 +1,0 @@
-namespace com.bbbirder.onchange{
-	public partial class BaseWatched<T>{
-
-	}
-	
-}
