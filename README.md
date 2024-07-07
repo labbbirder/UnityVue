@@ -1,7 +1,7 @@
 # UnityVue
 > 此库是本人接下来时间的开发维护重点，原名：CSReactive
 
-Unity纯C#版的VUE，运行时0GC。
+Unity纯C#版的VUE，运行时高效，运行时0GC。
 ## FEATURES
 实现了几乎所有VUE特性，自行简单封装后可以无缝对接FGUI、UGUI、UTK等几乎所有UI方案
 * 支持全平台
