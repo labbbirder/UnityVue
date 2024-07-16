@@ -60,9 +60,10 @@
 
 	<ItemGroup>
 		<Compile Include="../Shared/IDataProxy.cs"></Compile>
+		<Compile Include="../../Runtime/DataSource/Attributes.cs" />
 	</ItemGroup>
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="set input=$(OutDir)$(AssemblyName).dll&#xD;&#xA;set output=..\\$(AssemblyName).dll&#xD;&#xA;echo %25input%25 to %25output%25 &#xD;&#xA;copy /Y %25input%25 %25output%25" />
+		<Exec Command="set input=$(OutDir)$(AssemblyName).dll&#xD;&#xA;set output=..\\..\\$(AssemblyName).dll&#xD;&#xA;echo %25input%25 to %25output%25 &#xD;&#xA;copy /Y %25input%25 %25output%25" />
 	</Target>
 
 </Project>

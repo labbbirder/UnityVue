@@ -6,6 +6,10 @@ using System.Collections.Generic;
 using Microsoft.CodeAnalysis.CSharp;
 using System;
 using BBBirder.UnityVue;
+using System.Text.RegularExpressions;
+using System.Diagnostics;
+using System.Collections.Immutable;
+using Scriban.Helpers;
 
 namespace UnityVue.SG
 {
@@ -18,13 +22,16 @@ namespace UnityVue.SG
         }
         public struct MemberInfo
         {
-            public string cast_type;
+            public string type;
             public string raw_type;
             public string name;
+            public string raw_name;
+            public string getter_accessibility;
+            public string setter_accessibility;
         }
-        public string target_name;
+        //public string target_name;
         public string target_namespace;
-        public string target_fullname;
+        //public string target_fullname;
         public string module_name;
         public MemberInfo[] members;
         public NestInfo[] declaringTypes;
@@ -47,7 +54,39 @@ namespace UnityVue.SG
             NotGenerated.AnalyzerMessageFormat,
             "bbbirder", DiagnosticSeverity.Error, true);
 
-
+        static DeclarationInfo.MemberInfo[] GetMembers(INamedTypeSymbol type)
+        {
+            var attr = type.GetAttribute<ExportFieldsAttribute>();
+            if (attr is null) return Array.Empty<DeclarationInfo.MemberInfo>();
+            var reg = string.IsNullOrEmpty(attr.MatchName) ? null : new Regex(attr.MatchName);
+            return type.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Where(m => m.CanBeReferencedByName && !m.IsImplicitlyDeclared)
+                .Where(m => !m.IsStatic)
+                .Where(m => reg is null || reg.IsMatch(m.Name))
+                .Where(m => m.GetAttribute<ExportIgnoreAttribute>() == null)
+                .Where(m => m.DeclaredAccessibility switch
+                {
+                    Accessibility.Private => (attr.AccessibilityLevel & AccessibilityLevel.Private) != 0,
+                    Accessibility.Internal => (attr.AccessibilityLevel & AccessibilityLevel.Internal) != 0,
+                    Accessibility.Public => (attr.AccessibilityLevel & AccessibilityLevel.Public) != 0,
+                    _ => false,
+                })
+                .Where(m => !type.MemberNames.Contains(GetPropertyName(m.Name)))
+                .Select(m => new DeclarationInfo.MemberInfo()
+                {
+                    name = GetPropertyName(m.Name),
+                    raw_name = m.Name,
+                    type = m.Type.GetFullName(),
+                    raw_type = m.Type.GetFullName(),
+                })
+                .ToArray()
+                ;
+            static string GetPropertyName(string fieldName)
+            {
+                return fieldName.Substring(0, 1).ToUpperInvariant() + fieldName.Substring(1);
+            }
+        }
 
         internal DeclarationInfo GetDeclarationInfo(GeneratorExecutionContext context, TypeDeclarationSyntax typeSyntax)
         {
@@ -55,11 +94,11 @@ namespace UnityVue.SG
             var symbol = model.GetDeclaredSymbol(typeSyntax);
 
             var declaringTypes = new List<DeclarationInfo.NestInfo>();
-            var declaringType = symbol.ContainingType;
+            var declaringType = symbol;
             while(declaringType!=null)
             {
                 var keyword = (declaringType.DeclaringSyntaxReferences[0].GetSyntax() as TypeDeclarationSyntax).Keyword.ToString();
-                declaringTypes.Add(new()
+                declaringTypes.Insert(0, new()
                 {
                     keyword = keyword,
                     name = declaringType.Name
@@ -67,14 +106,14 @@ namespace UnityVue.SG
                 declaringType = declaringType.ContainingType;
             }
 
-            var members = new List<DeclarationInfo.MemberInfo>();
+            var members = GetMembers(symbol);
             return new()
             {
-                target_name = symbol.Name,
-                target_fullname = symbol.GetFullName(),
+                //target_name = symbol.Name,
+                //target_fullname = symbol.GetFullName(),
                 target_namespace = symbol.ContainingNamespace.GetSimpleName(),
                 module_name = symbol.ContainingModule.ToDisplayString(),
-                members = members.ToArray(),
+                members = members,
                 declaringTypes = declaringTypes.ToArray(),
             };
         }
@@ -96,7 +135,8 @@ namespace UnityVue.SG
         static bool HasInterface(GeneratorExecutionContext context, TypeDeclarationSyntax t)
         {
             if (t.BaseList is null) return false;
-            foreach(var b in t.BaseList.Types)
+            //var thisType = context.Compilation.GetSemanticModel(t.SyntaxTree).GetDeclaredSymbol(t);
+            foreach (var b in t.BaseList.Types)
             {
                 var type = context.Compilation.GetSemanticModel(b.SyntaxTree).GetSymbolInfo(b.Type).Symbol as INamedTypeSymbol;
                 if (type is null) continue;
@@ -122,18 +162,22 @@ namespace UnityVue.SG
             if (!refs.Contains(ValidAssemblyName)) return;
 
             var receiver = context.SyntaxReceiver as Receiver;
+            SyntaxNode visiting = null;
             try
             {
 
-                var validTypes = receiver.DeclarationList
+                var validTypes = receiver.ImplementInterfaceList
                     .Where(d => HasInterface(context, d))
-                    .Where(d => !HasAbstractToken(context, d))
+                    //.Where(d => !HasAbstractToken(context, d))
                     .ToArray()
                     ;
 
-                var declareInfos = new List<DeclarationInfo>();
-                foreach(var type in validTypes)
+                var implTemplate = Template.Parse(Templates.ImplementInterfaceTemplate);
+                var fieldsTemplate = Template.Parse(Templates.ExportFieldsTemplate);
+                var declareInfos = new Dictionary<string,string>();
+                foreach (var type in validTypes)
                 {
+                    visiting = type;
                     var s = context.Compilation.GetSemanticModel(type.SyntaxTree).GetDeclaredSymbol(type);
                     if (GetMinAccessiblityInContainingTypes(s) < Accessibility.Internal)
                     {
@@ -142,22 +186,53 @@ namespace UnityVue.SG
                     }
                     else
                     {
-                        declareInfos.Add(GetDeclarationInfo(context, type));
+                        var implMethods = s.GetMembers().Select(m=>m.Name).ToImmutableHashSet();
+                        var info = GetDeclarationInfo(context, type);
+                        var interfaceProperties = s.AllInterfaces.Single(i => i.IsFullNameEquals<IWatchable>())
+                            .GetMembers()
+                            .OfType<IPropertySymbol>();
+                        info.members = interfaceProperties
+                            .Where(p => !implMethods.Contains(p.Name))
+                            .Select(p => new DeclarationInfo.MemberInfo()
+                            {
+                                name = p.Name,
+                                type = p.Type.GetFullName(),
+                                //getter_accessibility = p.GetMethod.DeclaredAccessibility switch
+                                //{
+                                //     Accessibility.Internal=>"internal",
+                                //     Accessibility.Protected=>"protected",
+                                //     _=>"",
+                                //},
+                                //setter_accessibility = p.SetMethod.DeclaredAccessibility switch
+                                //{
+                                //    Accessibility.Internal => "internal",
+                                //    Accessibility.Protected => "protected",
+                                //    _ => "",
+                                //}
+                            })
+                            .ToArray();
+                        var content = implTemplate.Render(info);
+                        context.AddSource($"{s.GetFullName()}-impl.g.cs",content);
                     }
                 }
-
-                var template = Template.Parse(Templates.ImplementInterfaceTemplate);
-                foreach (var info in declareInfos)
+                foreach (var type in receiver.ExportFieldList)
                 {
-                    var targetFileName = $"{info.target_fullname}.g.cs";
-                    var content = template.Render(info);
-                    context.AddSource(targetFileName, content);
+                    visiting = type;
+                    var s = context.Compilation.GetSemanticModel(type.SyntaxTree).GetDeclaredSymbol(type);
+                    if (s.GetAttribute<ExportFieldsAttribute>() == null)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        var content = fieldsTemplate.Render(GetDeclarationInfo(context, type));
+                        context.AddSource($"{s.GetFullName()}-fields.g.cs", content);
+                    }
                 }
-
             }
             catch (Exception e)
             {
-                context.ReportDiagnostic(Diagnostic.Create(NotGeneratedDescriptor, null, e));
+                context.ReportDiagnostic(Diagnostic.Create(NotGeneratedDescriptor, visiting.GetLocation(), e));
                 try
                 {
                 }

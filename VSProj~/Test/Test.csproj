@@ -8,6 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shared\BBBirder.UnityVue.csproj" />
-    <ProjectReference Include="..\UnityVue.SG\UnityVue.SG.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	  <ProjectReference Include="..\UnityVue.SG\UnityVue.SG.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

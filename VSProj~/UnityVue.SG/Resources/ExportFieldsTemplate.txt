@@ -13,10 +13,12 @@ using BBBirder.UnityVue;
 partial {{declaringType.keyword}} {{declaringType.name}} {
 {{~ end ~}}
 	{{~ for m in members ~}}
-	{{m.type}} IWatchable.{{m.name}}
-	{
-		get;
-		set;
+	#if ODIN_INSPECTOR
+    [Sirenix.OdinInspector.ShowInInspector]
+    #endif
+	public {{m.type}} {{m.name}} {
+		get => {{m.raw_name}};
+		set => {{m.raw_name}} = value;
 	}
 	{{~ end ~}}
 {{~ for declaringType in declaring_types ~}}

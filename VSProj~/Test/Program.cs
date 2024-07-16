@@ -9,14 +9,31 @@ namespace com.asd
     {
         public partial record Root
         {
+            [ExportFields(AccessibilityLevel = AccessibilityLevel.All)]
             internal partial class Foo : IDataProxy
             {
+
+                internal string name;
+                [ExportIgnore]
+                Bar bar;
+                int age;
+                List<int>.Enumerator en;
                 void Test()
                 {
+                    this.En = en;
                 }
             }
-            class Bar : Foo { }
+            internal class Bar : Foo { }
         }
+
+        [ExportFields]
+        public abstract partial class SkillData:IDataProxy
+        {
+            float cooldown;
+            float cooldownMax;
+            float deltaCD => Cooldown - CooldownMax;
+        }
+
 
     }
 }

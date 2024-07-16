@@ -13,7 +13,8 @@ namespace UnityVue.SG
 
     public class Receiver : ISyntaxReceiver
     {
-        public List<TypeDeclarationSyntax> DeclarationList { get; } = new();
+        public List<TypeDeclarationSyntax> ImplementInterfaceList { get; } = new();
+        public List<TypeDeclarationSyntax> ExportFieldList { get; } = new();
 
         public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
         {
@@ -21,7 +22,11 @@ namespace UnityVue.SG
             {
                 if (cds.BaseList != null && cds.BaseList.Types.Any(b => b.ToString().Contains(nameof(IDataProxy))))
                 {
-                    DeclarationList.Add(cds);
+                    ImplementInterfaceList.Add(cds);
+                }
+                if (cds.AttributeLists.Count > 0 && cds.AttributeLists.SelectMany(a=>a.Attributes).Any(a=>a.ToString().Contains("ExportFields")))
+                {
+                    ExportFieldList.Add(cds);
                 }
             }
         }
