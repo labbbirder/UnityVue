@@ -2,7 +2,9 @@
     "name": "BBBirder.UnityVue.Editor",
     "rootNamespace": "BBBirder.UnityVue.Editor",
     "references": [
-        "BBBirder.UnityVue"
+        "BBBirder.UnityVue",
+        "BBBirder.UnityInjection",
+        "com.bbbirder.directattribute"
     ],
     "includePlatforms": [
         "Editor"
