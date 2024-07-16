@@ -155,13 +155,13 @@ namespace BBBirder.UnityVue
             }
         }
 
-        static public T SetProxy<T>(T watched) where T : IWatchable
+        private static T SetProxy<T>(T watched) where T : IWatchable
         {
-            if (!watched.IsProxyInited)
+            if ((watched.StatusFlags & (byte)PreservedWatchableFlags.Reactive) == 0)
             {
-                watched.onPropertyGet += key => OnGlobalGet(watched, key);
-                watched.onPropertySet += key => OnGlobalSet(watched, key);
-                watched.IsProxyInited = true;
+                watched.onPropertyGet += OnGlobalGet;
+                watched.onPropertySet += OnGlobalSet;
+                watched.StatusFlags |= (byte)PreservedWatchableFlags.Reactive;
             }
             return watched;
         }

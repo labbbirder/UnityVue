@@ -6,12 +6,21 @@ using System.Reflection;
 
 namespace BBBirder.UnityVue
 {
-    public interface IWatchable : IComparable
+    public enum PreservedWatchableFlags : byte
     {
-        bool IsProxyInited { get; set; }
-        Action<object> onPropertySet { get; set; }
-        Action<object> onPropertyGet { get; set; }
+        Reactive = 128,
+        Synchronize = 64,
+    }
 
+    public partial interface IWatchable : IComparable
+    {
+        // int SyncId { get; set; }
+        byte StatusFlags { get; set; }
+        // bool IsProxyInited { get; set; }
+        Action<IWatchable, object> onPropertySet { get; set; }
+        Action<IWatchable, object> onPropertyGet { get; set; }
+
+        //  TODO: 有问题，如果是object类型，那么有可能漏掉代理对象
         /// <summary>
         /// Override me to improve performance
         /// </summary>
@@ -32,7 +41,80 @@ namespace BBBirder.UnityVue
         }
     }
 
-    public interface IWatchableList : IList, IWatchable { }
-    public interface IWatchableList<T> : IList<T>, IWatchable { }
-    public interface IWatchableDic<K, V> : IDictionary<K, V>, IWatchable { }
+    public enum CollectionOperationType
+    {
+        None,
+        Add,
+        Remove,
+        Clear,
+    }
+    public interface IWatchableCollection : ICollection, IWatchable
+    {
+        CollectionOperationType operation { get; set; }
+        Action<object, object> onAddItem { get; set; }
+        Action<object, object> onRemoveItem { get; set; }
+        Action onClearItems { get; set; }
+        void RemoveByKey(object key);
+        void ClearAll();
+        AtomicCollectionOperation StartClearOperation()
+        {
+            if (onClearItems == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Clear, null, null);
+        }
+        AtomicCollectionOperation StartAddOperation(int index, object item)
+        {
+            if (onAddItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Add, index.BoxNumber(), item);
+        }
+        AtomicCollectionOperation StartRemoveOperation(int index, object item)
+        {
+            if (onRemoveItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Remove, index.BoxNumber(), item);
+        }
+        AtomicCollectionOperation StartAddOperation(object key, object item)
+        {
+            if (onAddItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Add, key, item);
+        }
+        AtomicCollectionOperation StartRemoveOperation(object key, object item)
+        {
+            if (onRemoveItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Remove, key, item);
+        }
+
+    }
+
+    // public interface IWatchableCollection<T> : ICollection<T>, IWatchable
+    // {
+    //     CollectionOperationType operation { get; set; }
+    //     Action<T> onAddItem { get; set; }
+    //     Action<T> onRemoveItem { get; set; }
+    //     void ASD(){onAddItem(new object());}
+    // }
+
+    public interface IWatchableList : IList, IWatchableCollection
+    {
+        void IWatchableCollection.ClearAll()
+        {
+            Clear();
+        }
+        void IWatchableCollection.RemoveByKey(object key)
+        {
+            RemoveAt((int)key);
+        }
+    }
+    public interface IWatchableList<T> : IWatchableList, IList<T>, IWatchableCollection
+    {
+    }
+    public interface IWatchableDic<K, V> : IDictionary<K, V>, IWatchableCollection
+    {
+        void IWatchableCollection.RemoveByKey(object key)
+        {
+            Remove((K)key);
+        }
+        void IWatchableCollection.ClearAll()
+        {
+            Clear();
+        }
+    }
 }

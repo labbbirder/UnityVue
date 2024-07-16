@@ -4,28 +4,29 @@ using System;
 
 namespace BBBirder.UnityVue
 {
-    public class RefData<T> : IWatchable, IDisposable
+    public partial class RefData<T> : IWatchable, IDisposable
     {
         T __rawObject;
         public T Value
         {
             get
             {
-                AsDataProxy.onPropertyGet?.Invoke("Value");
+                AsDataProxy.onPropertyGet?.Invoke(this, "Value");
                 return __rawObject;
             }
             set
             {
                 if (EqualityComparer<T>.Default.Equals(__rawObject, value)) return;
                 __rawObject = value;
-                AsDataProxy.onPropertySet?.Invoke("Value");
+                AsDataProxy.onPropertySet?.Invoke(this, "Value");
             }
         }
 
         IWatchable AsDataProxy => this;
-        bool IWatchable.IsProxyInited { get; set; }
-        Action<object> IWatchable.onPropertySet { get; set; }
-        Action<object> IWatchable.onPropertyGet { get; set; }
+        byte IWatchable.StatusFlags { get; set; }
+
+        Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
+        Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
 
         [Obsolete("It's not reasonable to instantiate RefData manually.", true)]
         public RefData() { }

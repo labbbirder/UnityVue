@@ -4,23 +4,30 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
 using System.Threading;
 using System.Runtime.CompilerServices;
 using System.Buffers;
 using System.Text;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using UnityEngine.Assertions;
 
 namespace BBBirder.UnityVue
 {
-    public class RList<T> : IWatchableList<T>, IList, IDisposable
+    public partial class RList<T> : IWatchableList<T>, IList, IDisposable
     {
         static readonly EqualityComparer<T> DefaultComparer = EqualityComparer<T>.Default;
         static readonly bool IsElementWatchableType = typeof(IWatchable).IsAssignableFrom(typeof(T));
         static readonly ArrayPool<T> ArrayPool = CollectionUtility<T>.ArrayPool;
 
-        bool IWatchable.IsProxyInited { get; set; }
-        Action<object> IWatchable.onPropertySet { get; set; }
-        Action<object> IWatchable.onPropertyGet { get; set; }
+        CollectionOperationType IWatchableCollection.operation { get; set; }
+        public Action<object, object> onAddItem { get; set; }
+        public Action<object, object> onRemoveItem { get; set; }
+        public Action onClearItems { get; set; }
+        byte IWatchable.StatusFlags { get; set; }
+        int IWatchable.SyncId { get; set; }
+        Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
+        Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
         bool IWatchable.IsPropertyWatchable(object key)
         {
             if (key is "Count")
@@ -38,20 +45,27 @@ namespace BBBirder.UnityVue
         {
             get
             {
-                AsDataProxy.onPropertyGet?.Invoke(nameof(Count));
+                AsDataProxy.onPropertyGet?.Invoke(this, nameof(Count));
                 return _Count;
             }
             protected set
             {
                 if (_Count == value) return;
                 _Count = value;
-                AsDataProxy.onPropertySet?.Invoke(nameof(Count));
+                AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
             }
         }
-        public RList(int capacity = 16)
+
+        public RList()
+        {
+            EnsureSize(4);
+        }
+
+        public RList(int capacity)
         {
             EnsureSize(capacity);
         }
+
         object IWatchable.RawGet(object key)
         {
             if (key is int index)
@@ -101,7 +115,7 @@ namespace BBBirder.UnityVue
         {
             get
             {
-                AsDataProxy.onPropertyGet?.Invoke(index.BoxNumber());
+                AsDataProxy.onPropertyGet?.Invoke(this, index.BoxNumber());
                 return GetByIndex(index);
             }
             set
@@ -113,7 +127,7 @@ namespace BBBirder.UnityVue
                 var prev = _array[index];
                 if (DefaultComparer.Equals(prev, value)) return;
                 _array[index] = value;
-                AsDataProxy.onPropertySet?.Invoke(index.BoxNumber());
+                AsDataProxy.onPropertySet?.Invoke(this, index.BoxNumber());
             }
         }
 
@@ -124,7 +138,6 @@ namespace BBBirder.UnityVue
             var newArr = ArrayPool.Rent(size);
             if (_Count > 0)
             {
-                Debug.Log($"{_array.Length} {size} {_Count}");
                 Array.Copy(_array, newArr, _Count);
             }
             ArrayPool.Return(_array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
@@ -174,15 +187,23 @@ namespace BBBirder.UnityVue
         /// </summary>
         public virtual void Clear()
         {
-            if (!RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            using var _ = StartClearOperation();
+            var cnt = _Count;
+            for (int i = cnt - 1; i >= 0; i--)
             {
-                Array.Clear(_array, 0, _Count);
+                _Count--;
+                // onRemoveItem?.Invoke(_array[i]);
+                if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+                {
+                    _array[i] = default;
+                }
+                AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
             }
-            for (int i = _Count - 1; i >= 0; i--)
-            {
-                AsDataProxy.onPropertySet?.Invoke(i.BoxNumber());
-            }
-            Count = 0;
+            // if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            // {
+            //     Array.Clear(_array, 0, cnt);
+            // }
+            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
         }
 
         /// <summary>
@@ -191,11 +212,12 @@ namespace BBBirder.UnityVue
         /// <param name="item"></param>
         public virtual void Add(T item)
         {
+            using var _ = StartAddOperation(_Count, item);
             EnsureSize(_Count + 1);
             _array[_Count] = item;
             _Count++;
-            AsDataProxy.onPropertySet?.Invoke((_Count - 1).BoxNumber());
-            AsDataProxy.onPropertySet?.Invoke(nameof(Count));
+            AsDataProxy.onPropertySet?.Invoke(this, (_Count - 1).BoxNumber());
+            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
         }
 
         public RList(IEnumerable<T> items)
@@ -208,10 +230,27 @@ namespace BBBirder.UnityVue
             AddRange(items);
         }
 
+        private AtomicCollectionOperation StartClearOperation()
+        {
+            if (onClearItems == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Clear, null, null);
+        }
+        private AtomicCollectionOperation StartAddOperation(int index, object item)
+        {
+            if (onAddItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Add, index.BoxNumber(), item);
+        }
+        private AtomicCollectionOperation StartRemoveOperation(int index, object item)
+        {
+            if (onRemoveItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Remove, index.BoxNumber(), item);
+        }
+
         public virtual void AddRange(IEnumerable<T> items)
         {
             foreach (var item in items)
             {
+                using var _ = StartAddOperation(_Count, item);
                 Add(item);
             }
         }
@@ -223,19 +262,25 @@ namespace BBBirder.UnityVue
 
         public void AddRange(T[] items, int startIndex, int count)
         {
+            // modify
             EnsureSize(_Count + count);
             Array.Copy(items, startIndex, _array, _Count, count);
 
+            // notify
             int iend = _Count = _Count + count;
             for (int i = _Count; i < iend; i++)
             {
-                AsDataProxy.onPropertySet?.Invoke(i.BoxNumber());
+                using var _ = StartAddOperation(_Count, _array[i]);
+                AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
             }
-            AsDataProxy.onPropertySet?.Invoke(nameof(Count));
+            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
         }
 
         public void Insert(int index, T item)
         {
+            using var _ = StartAddOperation(index, item);
+
+            // modify
             EnsureSize(_Count += 1);
             for (int i = ~-_Count; i > index; i--)
             {
@@ -243,16 +288,19 @@ namespace BBBirder.UnityVue
             }
             _array[index] = item;
 
+            // notify
             for (int i = index; i < _Count; i++)
             {
-                AsDataProxy.onPropertySet?.Invoke(i.BoxNumber());
+                AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
             }
-            AsDataProxy.onPropertySet?.Invoke(nameof(Count));
+            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
         }
 
         public void RemoveAt(int index)
         {
             if (index < 0 || index >= _Count) return;
+            var item = _array[index];
+            using var op = StartRemoveOperation(index, item);
             for (int i = index; i < _Count - 1; i++)
             {
                 this[i] = this[-~i];
@@ -272,10 +320,10 @@ namespace BBBirder.UnityVue
             return false;
         }
 
-        public T[] ToArray()
-        {
-            return this.AsEnumerable().ToArray();
-        }
+        // public T[] ToArray()
+        // {
+        //     return this.AsEnumerable().ToArray();
+        // }
 
         /// <summary>
         /// Copy without element-get notification
@@ -294,9 +342,22 @@ namespace BBBirder.UnityVue
 
         public int IndexOf(T item)
         {
-            var idx = Array.IndexOf(_array, item);
-            AsDataProxy.onPropertyGet?.Invoke(idx.BoxNumber());
-            return ~0;
+            if (AsDataProxy.onPropertyGet is null)
+            {
+                return Array.IndexOf(_array, item);
+            }
+            else
+            {
+                for (int i = 0; i < _Count; i++)
+                {
+                    AsDataProxy.onPropertyGet.Invoke(this, i.BoxNumber());
+                    if (DefaultComparer.Equals(item, _array[i]))
+                    {
+                        return i;
+                    }
+                }
+                return ~0;
+            }
         }
 
         public void Reverse()
@@ -375,7 +436,6 @@ namespace BBBirder.UnityVue
 
         public IEnumerator<T> GetEnumerator()
         {
-            Debug.Log("Count " + Count);
             for (int i = 0; i < Count; i++)
             {
                 yield return this[i];
@@ -390,28 +450,28 @@ namespace BBBirder.UnityVue
             }
         }
 
-        public int Add(object value)
+        int IList.Add(object value)
         {
             Add((T)value);
             return _Count;
         }
 
-        public bool Contains(object value)
+        bool IList.Contains(object value)
         {
             return Contains((T)value);
         }
 
-        public int IndexOf(object value)
+        int IList.IndexOf(object value)
         {
             return IndexOf((T)value);
         }
 
-        public void Insert(int index, object value)
+        void IList.Insert(int index, object value)
         {
             Insert(index, (T)value);
         }
 
-        public void Remove(object value)
+        void IList.Remove(object value)
         {
             Remove((T)value);
         }
