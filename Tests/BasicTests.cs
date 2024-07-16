@@ -126,7 +126,7 @@ public partial class BasicTest : IPrebuildSetup
             cube.Width = cube.Height + 1;
         })
         .WithArguments(ScopeFlushMode.Immediate)
-        .WithRef(o);
+        .WithLifeKeeper(o);
 
         cube.Height = 100;
         Assert.AreEqual(101, cube.Width);

@@ -12,7 +12,7 @@ namespace BBBirder.UnityVue
             [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
             where TComp : Object
         {
-            var scp = CSReactive.WatchEffect(effect).WithRef(component);
+            var scp = CSReactive.WatchEffect(effect).WithLifeKeeper(component);
 #if UNITY_EDITOR
             scp.name = $"{caller}:{ln}";
 #endif
@@ -24,7 +24,7 @@ namespace BBBirder.UnityVue
             [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
             where TComp : Object
         {
-            var scp = CSReactive.Watch(wf, effect).WithRef(component);
+            var scp = CSReactive.Watch(wf, effect).WithLifeKeeper(component);
 #if UNITY_EDITOR
             scp.name = $"{caller}:{ln}";
 #endif
@@ -36,7 +36,7 @@ namespace BBBirder.UnityVue
             [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
             where TComp : Object
         {
-            var scp = CSReactive.Watch(wf, effect).WithRef(component);
+            var scp = CSReactive.Watch(wf, effect).WithLifeKeeper(component);
 #if UNITY_EDITOR
             scp.name = $"{caller}:{ln}";
 #endif
@@ -48,7 +48,7 @@ namespace BBBirder.UnityVue
             [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
             where TComp : Object
         {
-            var scp = CSReactive.Watch(wf, effect).WithRef(component);
+            var scp = CSReactive.Watch(wf, effect).WithLifeKeeper(component);
 #if UNITY_EDITOR
             scp.name = $"{caller}:{ln}";
 #endif
@@ -60,7 +60,7 @@ namespace BBBirder.UnityVue
             [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
             where TComp : Object
         {
-            var scp = CSReactive.Compute(expf, setf).WithRef(component);
+            var scp = CSReactive.Compute(expf, setf).WithLifeKeeper(component);
 #if UNITY_EDITOR
             scp.name = $"{caller}:{ln}";
 #endif

@@ -111,24 +111,34 @@ namespace BBBirder.UnityVue
             return this;
         }
 
-        /// <summary>
-        /// Bind lifecycle to a reference. Scope will get disposed automatically when target reference is garbage collected.
-        /// </summary>
-        /// <remarks>
-        /// Note that, by applying a reference, the scope won't be notified immediately when the reference is garbage collected.
-        /// The life check logic is only occurs on update.
-        /// </remarks>
-        public WatchScope WithRef<T>(T reference) where T : class
+        public WatchScope WithLifeKeeper(UnityEngine.Object uo)
         {
-            if (reference is IScopeLifeKeeper lifeKeeper)
-            {
-                return WithLifeKeeper(lifeKeeper);
-            }
-            else
-            {
-                return WithLifeKeeper(ReactiveManager.Instance.GetReferenceLifeKeeper(reference));
-            }
+            return WithLifeKeeper(new UnityReferenceLifeKeeper(uo));
         }
+
+        public WatchScope WithLifeKeeper<T>(T uo) where T : UnityEngine.Object, IScopeLifeKeeper
+        {
+            return WithLifeKeeper(uo as IScopeLifeKeeper);
+        }
+
+        // /// <summary>
+        // /// Bind lifecycle to a reference. Scope will get disposed automatically when target reference is garbage collected.
+        // /// </summary>
+        // /// <remarks>
+        // /// Note that, by applying a reference, the scope won't be notified immediately when the reference is garbage collected.
+        // /// The life check logic is only occurs on update.
+        // /// </remarks>
+        // public WatchScope WithRef<T>(T reference) where T : class
+        // {
+        //     if (reference is IScopeLifeKeeper lifeKeeper)
+        //     {
+        //         return WithLifeKeeper(lifeKeeper);
+        //     }
+        //     else
+        //     {
+        //         return WithLifeKeeper(ReactiveManager.Instance.GetReferenceLifeKeeper(reference));
+        //     }
+        // }
 
         /// <summary>
         /// Clean and unsubscribe this scope
