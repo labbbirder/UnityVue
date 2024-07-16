@@ -2,13 +2,17 @@
     "name": "BBBirder.UnityVue.SimpleCompute",
     "rootNamespace": "",
     "references": [
-        ""
+        "BBBirder.UnityVue",
+        "com.bbbirder.directattribute",
+        "BBBirder.UnityInjection"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Sirenix.OdinInspector.Attributes.dll"
+    ],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
