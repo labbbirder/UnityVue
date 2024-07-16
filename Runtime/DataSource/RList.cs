@@ -25,7 +25,7 @@ namespace BBBirder.UnityVue
         public Action<object, object> onRemoveItem { get; set; }
         public Action onClearItems { get; set; }
         byte IWatchable.StatusFlags { get; set; }
-        int IWatchable.SyncId { get; set; }
+        // int IWatchable.SyncId { get; set; }
         Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
         Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
         bool IWatchable.IsPropertyWatchable(object key)

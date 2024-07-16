@@ -13,7 +13,7 @@ namespace BBBirder.UnityVue
         public ICollection<TKey> Keys => _dictionary.Keys;
         public ICollection<TValue> Values => _dictionary.Values;
 
-        int IWatchable.SyncId { get; set; }
+        // int IWatchable.SyncId { get; set; }
         byte IWatchable.StatusFlags { get; set; }
         Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
         Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
