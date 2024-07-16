@@ -87,7 +87,6 @@ public class CollectionTest : IPrebuildSetup
             var sum = 0f;
             foreach (var cube in group.cubeList)
             {
-                Debug.Log("cub " + cube);
                 sum += cube.Volume;
             }
             vSum = sum;
@@ -98,10 +97,58 @@ public class CollectionTest : IPrebuildSetup
         ).WithArguments(ScopeFlushMode.Immediate);
 
         group.cubeList.AddRange(new Cube[] { new() { Volume = 1 }, new() { Volume = 2 } });
+        Assert.AreEqual(5, group.cubeList.Count);
         Assert.AreEqual(5, count);
         Assert.AreEqual(3, vSum);
     }
 
+    [Test]
+    public void Dictionary_Count_Should_Emit_On_Change()
+    {
+        var dict = CSReactive.Reactive(new RDictionary<string, string>());
+        var cnt = -1;
+        CSReactive.WatchEffect(() =>
+        {
+            cnt = dict.Count;
+        }).WithArguments(ScopeFlushMode.Immediate);
+        Assert.AreEqual(0, cnt);
+        dict["a"] = "a";
+        Assert.AreEqual(1, cnt);
+        dict["b"] = "b";
+        Assert.AreEqual(2, cnt);
+        dict["a"] = "b";
+        Assert.AreEqual(2, cnt);
+        dict.Add("c", "c");
+        Assert.AreEqual(3, cnt);
+        dict.Remove("a");
+        Assert.AreEqual(2, cnt);
+        dict.Clear();
+        Assert.AreEqual(0, cnt);
+        dict["Count"] = "111";
+        Assert.AreEqual(1, cnt);
+    }
+
+    [Test]
+    public void Dictionary_Item_Should_Emit_On_Change()
+    {
+        var dict = CSReactive.Reactive(new RDictionary<string, string>());
+        var value = "";
+        CSReactive.WatchEffect(() =>
+        {
+            if (!dict.TryGetValue("a", out value))
+            {
+                value = null;
+            }
+        }).WithArguments(ScopeFlushMode.Immediate);
+        dict["a"] = "a";
+        Assert.AreEqual("a", value);
+        dict.Remove("a");
+        Assert.AreEqual(null, value);
+        dict.Add("a", "asd");
+        Assert.AreEqual("asd", value);
+        dict.Clear();
+        Assert.AreEqual(null, value);
+    }
     public void Setup()
     {
         InjectionDriver.Instance.InstallAllAssemblies();
