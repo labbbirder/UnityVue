@@ -48,7 +48,7 @@ namespace BBBirder.UnityVue
         /// a reference copy from data account, remove self when clear dependencies
         /// </summary>
         /// <returns></returns>
-        internal HashSet<((IWatchable, object), ScopeCollection)> includedTables = new();
+        internal HashSet<(LutKey, ScopeCollection)> includedTables = new();
 
         public WatchScope(Action effect) : this(effect, null) { }
 
@@ -64,6 +64,7 @@ namespace BBBirder.UnityVue
             }
             else
 #endif
+#if UNITY_5_3_OR_NEWER
             {
                 if (!ReactiveManager.Instance)
                     CreateRuntimeManager();
@@ -78,6 +79,7 @@ namespace BBBirder.UnityVue
                 GameObject.DontDestroyOnLoad(manager);
                 if (!ReactiveManager.Instance) throw new Exception("没有找到ScopeKeeper单例");
             }
+#endif
         }
 
         public WatchScope WithArguments(WatchScopeArguments arguments)

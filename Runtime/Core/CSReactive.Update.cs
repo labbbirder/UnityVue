@@ -5,45 +5,74 @@ using UnityEngine;
 
 namespace BBBirder.UnityVue
 {
+    internal struct LutKey : IEquatable<LutKey>
+    {
+        public IWatchable watched;
+        public object key;
+        public override int GetHashCode()
+        {
+            return watched.GetHashCode();
+        }
+        public override bool Equals(object obj)
+        {
+            if (obj is not LutKey lutKey || obj is null)
+            {
+                return false;
+            }
+            return object.ReferenceEquals(watched, lutKey.watched)
+                && object.Equals(key, lutKey.key);
+        }
+        public override string ToString()
+        {
+            return $"{watched} -> {key}";
+        }
+
+        public bool Equals(LutKey lutKey)
+        {
+            return object.ReferenceEquals(watched, lutKey.watched)
+                && object.Equals(key, lutKey.key);
+        }
+    }
+
     public partial class CSReactive
     {
-        public static T cast<T>(object v)
-        {
-            try
-            {
-                return (T)(Type.GetTypeCode(typeof(T)) switch
-                {
-                    TypeCode.SByte => Convert.ToSByte(v),
-                    TypeCode.Int16 => Convert.ToInt16(v),
-                    TypeCode.Int32 => Convert.ToInt32(v),
-                    TypeCode.Int64 => Convert.ToInt64(v),
+        // public static T cast<T>(object v)
+        // {
+        //     try
+        //     {
+        //         return (T)(Type.GetTypeCode(typeof(T)) switch
+        //         {
+        //             TypeCode.SByte => Convert.ToSByte(v),
+        //             TypeCode.Int16 => Convert.ToInt16(v),
+        //             TypeCode.Int32 => Convert.ToInt32(v),
+        //             TypeCode.Int64 => Convert.ToInt64(v),
 
-                    TypeCode.Byte => Convert.ToByte(v),
-                    TypeCode.UInt16 => Convert.ToUInt16(v),
-                    TypeCode.UInt32 => Convert.ToUInt32(v),
-                    TypeCode.UInt64 => Convert.ToUInt64(v),
+        //             TypeCode.Byte => Convert.ToByte(v),
+        //             TypeCode.UInt16 => Convert.ToUInt16(v),
+        //             TypeCode.UInt32 => Convert.ToUInt32(v),
+        //             TypeCode.UInt64 => Convert.ToUInt64(v),
 
-                    TypeCode.Single => Convert.ToSingle(v),
-                    TypeCode.Double => Convert.ToDouble(v),
-                    TypeCode.Decimal => Convert.ToDecimal(v),
+        //             TypeCode.Single => Convert.ToSingle(v),
+        //             TypeCode.Double => Convert.ToDouble(v),
+        //             TypeCode.Decimal => Convert.ToDecimal(v),
 
-                    TypeCode.Char => Convert.ToChar(v),
-                    TypeCode.String => Convert.ToString(v),
+        //             TypeCode.Char => Convert.ToChar(v),
+        //             TypeCode.String => Convert.ToString(v),
 
-                    TypeCode.Boolean => Convert.ToBoolean(v),
-                    TypeCode.DateTime => Convert.ToDateTime(v),
+        //             TypeCode.Boolean => Convert.ToBoolean(v),
+        //             TypeCode.DateTime => Convert.ToDateTime(v),
 
-                    _ => v
-                });
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-                Debug.LogError($"cannot cast {v} to typpe {typeof(T)}");
-                return default;
-            }
+        //             _ => v
+        //         });
+        //     }
+        //     catch (Exception e)
+        //     {
+        //         Debug.LogException(e);
+        //         Debug.LogError($"cannot cast {v} to typpe {typeof(T)}");
+        //         return default;
+        //     }
 
-        }
+        // }
 
         public struct DataAccess
         {
@@ -57,13 +86,13 @@ namespace BBBirder.UnityVue
         // Fixed(IL2CPP): https://unity.com/releases/editor/beta/2023.1.0b11
         // internal static ConditionalWeakTable<IWatched,Dictionary<string,HashSet<WatchScope>>> dataDeps;
         // #endif
-        private static Dictionary<(object inst, object key), ScopeCollection> dataRegistry = new();
+        private static Dictionary<LutKey, ScopeCollection> dataRegistry = new();
         private static int s_frameIndex;
         private static bool shouldCollectReference;
         private static Stack<WatchScope> stackingScopes = new();
         private static HashSet<WatchScope> dirtyScopes = new();
         // private static HashSet<WatchScope> pendingDirtyScopes = new();
-        private static HashSet<(IWatchable, object)> s_emptyCollectionKeys = new();
+        private static HashSet<LutKey> s_emptyCollectionKeys = new();
         public static DataAccess lastAccess = new();
 
         static void OnGlobalGet(IWatchable watched, object key)
@@ -83,7 +112,11 @@ namespace BBBirder.UnityVue
             if (stackingScopes.Count == 0) return;
 
             var topScope = stackingScopes.Peek();
-            var lutKey = (watched, key);
+            var lutKey = new LutKey()
+            {
+                watched = watched,
+                key = key,
+            };
             if (!dataRegistry.TryGetValue(lutKey, out var collection))
             {
                 dataRegistry[lutKey] = collection = new();
@@ -95,7 +128,11 @@ namespace BBBirder.UnityVue
 
         static void OnGlobalSet(IWatchable watched, object key)
         {
-            var pkey = (watched, key);
+            var pkey = new LutKey()
+            {
+                watched = watched,
+                key = key,
+            };
             if (dataRegistry.TryGetValue(pkey, out var collection))
             {
                 var count = collection.Count;
@@ -147,7 +184,7 @@ namespace BBBirder.UnityVue
             if (++scope.updatedInOneFrame > scope.updateLimit)
             {
                 scope.isDirty = true;
-                Debug.LogWarning("effect times exceed max iter count");
+                Logger.Warning("effect times exceed max iter count");
                 return;
             }
 
@@ -162,7 +199,7 @@ namespace BBBirder.UnityVue
                     }
                     catch (Exception e)
                     {
-                        Debug.LogException(e);
+                        Logger.Error(e);
                     }
                 }
 
@@ -172,7 +209,7 @@ namespace BBBirder.UnityVue
                 }
                 catch (Exception e)
                 {
-                    Debug.LogException(e);
+                    Logger.Error(e);
                 }
             }
         }
