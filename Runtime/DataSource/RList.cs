@@ -175,7 +175,7 @@ namespace BBBirder.UnityVue
         /// </summary>
         public virtual void RawClear()
         {
-            if (!RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
                 Array.Clear(_array, 0, _Count);
             }
