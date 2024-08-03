@@ -1,13 +1,12 @@
 using BBBirder.UnityVue;
-using Sirenix.OdinInspector;
 using UnityEngine;
 
-partial class CubeData : MonoBehaviour
+[ExecuteAlways]
+public partial class CubeData : MonoBehaviour
 {
     void Start()
     {
         CSReactive.Reactive(this);
-
         this.WatchEffect(() =>
         {
             var halfArea = (Length * Width) + (Width * Height) + (Length * Height);
@@ -25,9 +24,9 @@ partial class CubeData : MonoBehaviour
 
 partial class CubeData : IDataProxy
 {
-    public float Length { get; set; } = 1;
-    public float Width { get; set; } = 1;
-    public float Height { get; set; } = 1;
+    public float Length { get; set; }
+    public float Width { get; set; }
+    public float Height { get; set; }
 
     public float Sum { get; set; }
     public float Area { get; set; }
