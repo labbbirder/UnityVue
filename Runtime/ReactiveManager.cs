@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+using UnityEngine.Assertions;
 
 namespace BBBirder.UnityVue
 {
@@ -23,46 +27,24 @@ namespace BBBirder.UnityVue
         }
     }
 
-    // public class WeakReferenceLifeKeeper : ReferenceLifeKeeper
-    // {
-
-    //     public WeakReference wr;
-    //     public override bool IsAlive => wr.IsAlive && wr.Target != null;
-    //     public WeakReferenceLifeKeeper(object refer)
-    //     {
-    //         wr = new(refer);
-    //     }
-    // }
-
-    // public abstract class ReferenceLifeKeeper : IScopeLifeKeeper
-    // {
-    //     public abstract bool IsAlive { get; }
-    //     public event Action onDestroy;
-    //     internal void DestroyImmediate()
-    //     {
-    //         onDestroy?.Invoke();
-    //         onDestroy = null;
-    //     }
-    //     internal static ReferenceLifeKeeper Create(object obj)
-    //     {
-    //         var uobjType = typeof(UnityEngine.Object);
-    //         var isUnityObject = obj.GetType().IsSubclassOf(uobjType) || obj.GetType() == uobjType;
-    //         if (isUnityObject)
-    //         {
-    //             return new UnityReferenceLifeKeeper((UnityEngine.Object)obj);
-    //         }
-    //         else
-    //         {
-    //             return new WeakReferenceLifeKeeper(obj);
-    //         }
-    //     }
-    // }
-
-
+    [ExecuteAlways]
     public class ReactiveManager : MonoBehaviour
     {
+#if UNITY_EDITOR
+        [InitializeOnLoadMethod]
+        static void Setup()
+        {
+            Assert.IsNotNull(Instance);
+        }
+#endif
+        [RuntimeInitializeOnLoadMethod]
+        static void SetupRuntime()
+        {
+            Assert.IsNotNull(Instance);
+        }
+
         static ReactiveManager _instance;
-        private Dictionary<object, UnityReferenceLifeKeeper> referenceLifeKeepers = new();
+        internal List<UnityReferenceLifeKeeper> unityObjectKeepers = new();
         public static ReactiveManager Instance
         {
             get
@@ -71,56 +53,48 @@ namespace BBBirder.UnityVue
                 {
                     _instance = Resources.FindObjectsOfTypeAll<ReactiveManager>().FirstOrDefault();
                 }
+                if (!_instance)
+                {
+                    var go = new GameObject(nameof(ReactiveManager), typeof(ReactiveManager))
+                    {
+                        hideFlags = HideFlags.HideAndDontSave
+                    };
+                    _instance = go.GetComponent<ReactiveManager>();
+                }
                 return _instance;
             }
         }
         public Action onUpdate = CSReactive.UpdateDirtyScopes;
-
-        // public ReferenceLifeKeeper GetReferenceLifeKeeper<T>(T refer) where T : class
-        // {
-        //     if (!referenceLifeKeepers.TryGetValue(refer, out var keeper))
-        //     {
-        //         referenceLifeKeepers[refer] = keeper = ReferenceLifeKeeper.Create(refer);
-        //     }
-        //     return keeper;
-        // }
 
         void Awake()
         {
             if (_instance && _instance != this)
             {
                 if (Application.isPlaying)
-                    Destroy(this);
+                    Destroy(_instance);
                 else
-                    DestroyImmediate(this);
-                return;
+                    DestroyImmediate(_instance);
             }
             if (!_instance) _instance = this;
         }
 
-        static Stack<object> deadReferences;
-        void Update()
+        void CheckAndRemoveDestroyedUnityObjectReferences()
         {
-            deadReferences ??= new();
-
-            foreach (var (refer, keeper) in referenceLifeKeepers)
+            for (int i = unityObjectKeepers.Count - 1; i >= 0; i--)
             {
+                var keeper = unityObjectKeepers[i];
                 if (!keeper.IsAlive)
                 {
                     keeper.DestroyImmediate();
-                    deadReferences.Push(refer);
+                    unityObjectKeepers[i] = unityObjectKeepers[^1];
+                    unityObjectKeepers.RemoveAt(unityObjectKeepers.Count - 1);
                 }
             }
-
-            foreach (var refer in deadReferences)
-            {
-                referenceLifeKeepers.Remove(refer);
-            }
-            deadReferences.Clear();
         }
 
         void LateUpdate()
         {
+            CheckAndRemoveDestroyedUnityObjectReferences();
             onUpdate?.Invoke();
         }
     }
