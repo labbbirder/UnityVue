@@ -85,7 +85,15 @@ namespace BBBirder.UnityVue
             if (InUnityEnv)
             {
 #if UNITY_EDITOR
-                UnityEngine.Debug.LogError("[UnityVue] " + string.Join(" ", args));
+                if (args.Length == 1 && args[0] is Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("[UnityVue] " + string.Join(" ", args));
+                }
 #endif
             }
             else
