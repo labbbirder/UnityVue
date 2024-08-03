@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Diagnostics;
+using System.Linq;
 #if UNITY_EDITOR
-using UnityEditor;
 #endif
 
 namespace BBBirder.UnityVue
@@ -34,7 +34,6 @@ namespace BBBirder.UnityVue
     {
         internal const int DEFAULT_UPDATE_LIMIT = 100;
 
-        public string name = "";
         public ScopeFlushMode flushMode;
         public IScopeLifeKeeper lifeKeeper;
         public int updateLimit = DEFAULT_UPDATE_LIMIT;
@@ -43,51 +42,32 @@ namespace BBBirder.UnityVue
         internal bool isDirty = false;
         internal int updatedInOneFrame;
         internal int frameIndex;
-
+#if ENABLE_UNITY_VUE_TRACKER
+        const int MAX_STACK_COUNT = 12;
+        internal StackFrame[] stackFrames;
+#endif
         /// <summary>
         /// a reference copy from data account, remove self when clear dependencies
         /// </summary>
         /// <returns></returns>
         internal HashSet<ScopeCollection> includedTables = new();
 
-        public WatchScope(Action effect) : this(effect, null) { }
+        public WatchScope(Action effect) : this(effect, null, 2) { }
 
-        public WatchScope(Action effect, Action normalEffect)
+        public WatchScope(Action effect, Action normalEffect, int depth = 1)
         {
             this.effect = effect;
             this.normalEffect = normalEffect;
-#if UNITY_EDITOR
-            if (!Application.isPlaying)
-            {
-                EditorApplication.update -= CSReactive.EditorUpdateDirtyScopes;
-                EditorApplication.update += CSReactive.EditorUpdateDirtyScopes;
-            }
-            else
-#endif
-#if UNITY_5_3_OR_NEWER
-            {
-                if (!ReactiveManager.Instance)
-                    CreateRuntimeManager();
-            }
-            // #if UNITY_EDITOR
-            //                 com.bbbirder.unity.ScopeVisualizer.Instance.refs.Add(new(this));
-            // #endif
-            static void CreateRuntimeManager()
-            {
-                var manager = new GameObject(nameof(ReactiveManager));
-                manager.AddComponent<ReactiveManager>();
-                GameObject.DontDestroyOnLoad(manager);
-                if (!ReactiveManager.Instance) throw new Exception("没有找到ScopeKeeper单例");
-            }
+#if ENABLE_UNITY_VUE_TRACKER
+            GlobalTrackerData.Instance.scopes.Add(new(this));
+            stackFrames = new StackTrace(depth, true).GetFrames()
+                .Take(MAX_STACK_COUNT)
+                .ToArray();
 #endif
         }
 
         public WatchScope WithArguments(WatchScopeArguments arguments)
         {
-            if (!string.IsNullOrEmpty(arguments.name))
-            {
-                this.name = arguments.name;
-            }
 
             if (arguments.updateLimit != 0)
             {
@@ -108,6 +88,7 @@ namespace BBBirder.UnityVue
 
         public WatchScope WithLifeKeeper(IScopeLifeKeeper lifeKeeper)
         {
+            lifeKeeper.onDestroy -= Dispose;
             lifeKeeper.onDestroy += Dispose;
             this.lifeKeeper = lifeKeeper;
             return this;
@@ -115,7 +96,9 @@ namespace BBBirder.UnityVue
 
         public WatchScope WithLifeKeeper(UnityEngine.Object uo)
         {
-            return WithLifeKeeper(new UnityReferenceLifeKeeper(uo));
+            var ur = new UnityReferenceLifeKeeper(uo);
+            ReactiveManager.Instance.unityObjectKeepers.Add(ur);
+            return WithLifeKeeper(ur);
         }
 
         public WatchScope WithLifeKeeper<T>(T uo) where T : UnityEngine.Object, IScopeLifeKeeper
@@ -123,24 +106,13 @@ namespace BBBirder.UnityVue
             return WithLifeKeeper(uo as IScopeLifeKeeper);
         }
 
-        // /// <summary>
-        // /// Bind lifecycle to a reference. Scope will get disposed automatically when target reference is garbage collected.
-        // /// </summary>
-        // /// <remarks>
-        // /// Note that, by applying a reference, the scope won't be notified immediately when the reference is garbage collected.
-        // /// The life check logic is only occurs on update.
-        // /// </remarks>
-        // public WatchScope WithRef<T>(T reference) where T : class
-        // {
-        //     if (reference is IScopeLifeKeeper lifeKeeper)
-        //     {
-        //         return WithLifeKeeper(lifeKeeper);
-        //     }
-        //     else
-        //     {
-        //         return WithLifeKeeper(ReactiveManager.Instance.GetReferenceLifeKeeper(reference));
-        //     }
-        // }
+        /// <summary>
+        /// Execute once
+        /// </summary>
+        public void Update()
+        {
+            CSReactive.RunScope(this, true);
+        }
 
         /// <summary>
         /// Clean and unsubscribe this scope
@@ -154,10 +126,6 @@ namespace BBBirder.UnityVue
     public struct WatchScopeArguments
     {
         /// <summary>
-        /// The debug name.
-        /// </summary>
-        public string name;
-        /// <summary>
         /// Determine when the scope got updated.
         /// </summary>
         public ScopeFlushMode flushMode;
@@ -165,11 +133,6 @@ namespace BBBirder.UnityVue
         /// Determine the maximum times allowed to update in one frame.
         /// </summary>
         public int updateLimit;
-
-        public static implicit operator WatchScopeArguments(string name) => new()
-        {
-            name = name,
-        };
 
         public static implicit operator WatchScopeArguments(ScopeFlushMode flushMode) => new()
         {
@@ -181,21 +144,9 @@ namespace BBBirder.UnityVue
             updateLimit = updateLimit,
         };
 
-        public static implicit operator WatchScopeArguments((string name, ScopeFlushMode flushMode) args) => new()
-        {
-            name = args.name,
-            flushMode = args.flushMode,
-        };
-
         public static implicit operator WatchScopeArguments((ScopeFlushMode flushMode, int updateLimit) args) => new()
         {
             flushMode = args.flushMode,
-            updateLimit = args.updateLimit,
-        };
-
-        public static implicit operator WatchScopeArguments((string name, int updateLimit) args) => new()
-        {
-            name = args.name,
             updateLimit = args.updateLimit,
         };
     }

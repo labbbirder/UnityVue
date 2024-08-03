@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -8,62 +9,42 @@ namespace BBBirder.UnityVue
     public static class UnityObjectExtensions
     {
         public static WatchScope WatchEffect<TComp>(this TComp component,
-            Action effect,
-            [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
+            Action effect)
             where TComp : Object
         {
             var scp = CSReactive.WatchEffect(effect).WithLifeKeeper(component);
-#if UNITY_EDITOR
-            scp.name = $"{caller}:{ln}";
-#endif
             return scp;
         }
 
         public static WatchScope Watch<TComp, T>(this TComp component,
-            Func<T> wf, Action<T, T> effect,
-            [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
+            Func<T> wf, Action<T, T> effect)
             where TComp : Object
         {
             var scp = CSReactive.Watch(wf, effect).WithLifeKeeper(component);
-#if UNITY_EDITOR
-            scp.name = $"{caller}:{ln}";
-#endif
             return scp;
         }
 
         public static WatchScope Watch<TComp, T>(this TComp component,
-            Func<T> wf, Action<T> effect,
-            [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
+            Func<T> wf, Action<T> effect)
             where TComp : Object
         {
             var scp = CSReactive.Watch(wf, effect).WithLifeKeeper(component);
-#if UNITY_EDITOR
-            scp.name = $"{caller}:{ln}";
-#endif
             return scp;
         }
 
         public static WatchScope Watch<TComp, T>(this TComp component,
-            Func<T> wf, Action effect,
-            [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
+            Func<T> wf, Action effect)
             where TComp : Object
         {
             var scp = CSReactive.Watch(wf, effect).WithLifeKeeper(component);
-#if UNITY_EDITOR
-            scp.name = $"{caller}:{ln}";
-#endif
             return scp;
         }
 
         public static WatchScope Compute<TComp, T>(this TComp component,
-            Func<T> expf, Action<T> setf,
-            [CallerMemberName] string caller = null, [CallerLineNumber] int ln = 0)
+            Func<T> expf, Action<T> setf)
             where TComp : Object
         {
             var scp = CSReactive.Compute(expf, setf).WithLifeKeeper(component);
-#if UNITY_EDITOR
-            scp.name = $"{caller}:{ln}";
-#endif
             return scp;
         }
 

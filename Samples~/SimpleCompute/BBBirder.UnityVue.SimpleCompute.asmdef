@@ -3,16 +3,14 @@
     "rootNamespace": "",
     "references": [
         "BBBirder.UnityVue",
-        "com.bbbirder.directattribute",
-        "BBBirder.UnityInjection"
+        "BBBirder.UnityInjection",
+        "com.bbbirder.directattribute"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": true,
-    "precompiledReferences": [
-        "Sirenix.OdinInspector.Attributes.dll"
-    ],
+    "overrideReferences": false,
+    "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],

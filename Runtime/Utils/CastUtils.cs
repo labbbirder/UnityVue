@@ -1,4 +1,5 @@
 
+using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -52,5 +53,31 @@ namespace BBBirder.UnityVue
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static object BoxNumber(this ushort n) => BoxNumber((int)n);
+
+
+        public static object DynamicCast(object v, Type targetType)
+        {
+            if (v == null) return null;
+            var targetTypeCode = Type.GetTypeCode(targetType);
+            return targetTypeCode switch
+            {
+                TypeCode.Boolean => Convert.ToBoolean(v),
+                TypeCode.SByte => Convert.ToSByte(v),
+                TypeCode.Int16 => Convert.ToInt16(v),
+                TypeCode.Int32 => Convert.ToInt32(v),
+                TypeCode.Int64 => Convert.ToInt64(v),
+                TypeCode.Byte => Convert.ToByte(v),
+                TypeCode.UInt16 => Convert.ToUInt16(v),
+                TypeCode.UInt32 => Convert.ToUInt32(v),
+                TypeCode.UInt64 => Convert.ToUInt64(v),
+                TypeCode.Char => Convert.ToChar(v),
+                TypeCode.String => Convert.ToString(v),
+                TypeCode.Single => Convert.ToSingle(v),
+                TypeCode.Double => Convert.ToDouble(v),
+                TypeCode.Decimal => Convert.ToDecimal(v),
+                TypeCode.DateTime => Convert.ToDateTime(v),
+                _ => v,
+            };
+        }
     }
 }

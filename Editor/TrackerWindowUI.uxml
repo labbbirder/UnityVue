@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement style="flex-grow: 1; height: 100%; min-height: 300px; max-height: 100%;">
+        <ui:VisualElement style="flex-direction: row; background-color: rgba(0, 0, 0, 0.33);">
+            <ui:Toggle text="Enable" name="togEnable" />
+            <ui:VisualElement style="flex-shrink: 0; flex-grow: 1;" />
+            <ui:Button text="GC" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btnCollect" />
+            <ui:Button text="Refresh" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btnRefresh" />
+            <ui:Toggle text="Auto Refresh" value="true" name="togAutoRefresh" />
+        </ui:VisualElement>
+        <ui:ListView focusable="true" name="scopes" virtualization-method="DynamicHeight" show-alternating-row-backgrounds="All" style="flex-shrink: 1; flex-grow: 1;" />
+        <ui:GroupBox style="flex-direction: row;">
+            <ui:Label tabindex="-1" text="total:" parse-escape-sequences="true" display-tooltip-when-elided="true" />
+            <ui:Label tabindex="-1" text="--" parse-escape-sequences="true" display-tooltip-when-elided="true" name="txtTotal" />
+            <ui:Label tabindex="-1" text="dirty:" parse-escape-sequences="true" display-tooltip-when-elided="true" />
+            <ui:Label tabindex="-1" text="--&#10;" parse-escape-sequences="true" display-tooltip-when-elided="true" name="txtDirty" />
+        </ui:GroupBox>
+    </ui:VisualElement>
+</ui:UXML>
