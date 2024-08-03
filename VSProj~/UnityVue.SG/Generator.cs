@@ -159,7 +159,7 @@ namespace UnityVue.SG
             //Debugger.Launch();
 
             var refs = context.Compilation.ReferencedAssemblyNames.Select(n => n.Name).ToArray();
-            if (!refs.Contains(ValidAssemblyName)) return;
+            if (!refs.Contains(ValidAssemblyName) && context.Compilation.AssemblyName != ValidAssemblyName) return;
 
             var receiver = context.SyntaxReceiver as Receiver;
             SyntaxNode visiting = null;
