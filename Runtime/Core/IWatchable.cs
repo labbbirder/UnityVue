@@ -48,7 +48,7 @@ namespace BBBirder.UnityVue
         Remove,
         Clear,
     }
-    public interface IWatchableCollection : ICollection, IWatchable
+    public interface IWatchableCollection : IWatchable
     {
         CollectionOperationType operation { get; set; }
         Action<object, object> onAddItem { get; set; }
@@ -94,27 +94,13 @@ namespace BBBirder.UnityVue
 
     public interface IWatchableList : IList, IWatchableCollection
     {
-        void IWatchableCollection.ClearAll()
-        {
-            Clear();
-        }
-        void IWatchableCollection.RemoveByKey(object key)
-        {
-            RemoveAt((int)key);
-        }
     }
-    public interface IWatchableList<T> : IWatchableList, IList<T>, IWatchableCollection
+
+    public interface IWatchableList<T> : IWatchableList, IList<T>
     {
     }
+
     public interface IWatchableDic<K, V> : IDictionary<K, V>, IWatchableCollection
     {
-        void IWatchableCollection.RemoveByKey(object key)
-        {
-            Remove((K)key);
-        }
-        void IWatchableCollection.ClearAll()
-        {
-            Clear();
-        }
     }
 }

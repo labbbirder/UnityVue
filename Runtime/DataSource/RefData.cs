@@ -25,6 +25,7 @@ namespace BBBirder.UnityVue
         IWatchable AsDataProxy => this;
         byte IWatchable.StatusFlags { get; set; }
 
+        Dictionary<object, ScopeCollection> IWatchable.Scopes { get; set; }
         Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
         Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
 

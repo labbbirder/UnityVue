@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace BBBirder.UnityVue
 {
@@ -36,43 +37,6 @@ namespace BBBirder.UnityVue
 
     public partial class CSReactive
     {
-        // public static T cast<T>(object v)
-        // {
-        //     try
-        //     {
-        //         return (T)(Type.GetTypeCode(typeof(T)) switch
-        //         {
-        //             TypeCode.SByte => Convert.ToSByte(v),
-        //             TypeCode.Int16 => Convert.ToInt16(v),
-        //             TypeCode.Int32 => Convert.ToInt32(v),
-        //             TypeCode.Int64 => Convert.ToInt64(v),
-
-        //             TypeCode.Byte => Convert.ToByte(v),
-        //             TypeCode.UInt16 => Convert.ToUInt16(v),
-        //             TypeCode.UInt32 => Convert.ToUInt32(v),
-        //             TypeCode.UInt64 => Convert.ToUInt64(v),
-
-        //             TypeCode.Single => Convert.ToSingle(v),
-        //             TypeCode.Double => Convert.ToDouble(v),
-        //             TypeCode.Decimal => Convert.ToDecimal(v),
-
-        //             TypeCode.Char => Convert.ToChar(v),
-        //             TypeCode.String => Convert.ToString(v),
-
-        //             TypeCode.Boolean => Convert.ToBoolean(v),
-        //             TypeCode.DateTime => Convert.ToDateTime(v),
-
-        //             _ => v
-        //         });
-        //     }
-        //     catch (Exception e)
-        //     {
-        //         Debug.LogException(e);
-        //         Debug.LogError($"cannot cast {v} to typpe {typeof(T)}");
-        //         return default;
-        //     }
-
-        // }
 
         public struct DataAccess
         {

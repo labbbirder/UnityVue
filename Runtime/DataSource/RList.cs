@@ -8,26 +8,16 @@ using System.Threading;
 using System.Runtime.CompilerServices;
 using System.Buffers;
 using System.Text;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using UnityEngine.Assertions;
 
 namespace BBBirder.UnityVue
 {
-    public partial class RList<T> : IWatchableList<T>, IList, IDisposable
+    public partial class RList<T> : CollectionBase, IWatchableList<T>, IList, IDisposable
     {
         static readonly EqualityComparer<T> DefaultComparer = EqualityComparer<T>.Default;
         static readonly bool IsElementWatchableType = typeof(IWatchable).IsAssignableFrom(typeof(T));
         static readonly ArrayPool<T> ArrayPool = CollectionUtility<T>.ArrayPool;
 
-        CollectionOperationType IWatchableCollection.operation { get; set; }
-        public Action<object, object> onAddItem { get; set; }
-        public Action<object, object> onRemoveItem { get; set; }
-        public Action onClearItems { get; set; }
-        byte IWatchable.StatusFlags { get; set; }
-        // int IWatchable.SyncId { get; set; }
-        Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
-        Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
         bool IWatchable.IsPropertyWatchable(object key)
         {
             if (key is "Count")
@@ -36,7 +26,7 @@ namespace BBBirder.UnityVue
             }
             return IsElementWatchableType;
         }
-        IWatchable AsDataProxy => this;
+        IWatchableList<T> AsDataProxy => this;
 
         protected T[] _array = Array.Empty<T>();
         int _Count = 0;
@@ -66,7 +56,7 @@ namespace BBBirder.UnityVue
             EnsureSize(capacity);
         }
 
-        object IWatchable.RawGet(object key)
+        public override object RawGet(object key)
         {
             if (key is int index)
             {
@@ -83,7 +73,7 @@ namespace BBBirder.UnityVue
             throw new ArgumentException($"key is not a number {key}");
         }
 
-        bool IWatchable.RawSet(object key, object value)
+        public override bool RawSet(object key, object value)
         {
             if (key is int index)
             {
@@ -232,17 +222,17 @@ namespace BBBirder.UnityVue
 
         private AtomicCollectionOperation StartClearOperation()
         {
-            if (onClearItems == null) return new();
+            if (AsDataProxy.onClearItems == null) return new();
             return new AtomicCollectionOperation(this, CollectionOperationType.Clear, null, null);
         }
         private AtomicCollectionOperation StartAddOperation(int index, object item)
         {
-            if (onAddItem == null) return new();
+            if (AsDataProxy.onAddItem == null) return new();
             return new AtomicCollectionOperation(this, CollectionOperationType.Add, index.BoxNumber(), item);
         }
         private AtomicCollectionOperation StartRemoveOperation(int index, object item)
         {
-            if (onRemoveItem == null) return new();
+            if (AsDataProxy.onRemoveItem == null) return new();
             return new AtomicCollectionOperation(this, CollectionOperationType.Remove, index.BoxNumber(), item);
         }
 
@@ -484,6 +474,16 @@ namespace BBBirder.UnityVue
         public void Dispose()
         {
             ArrayPool.Return(_array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+        }
+
+        public override void ClearAll()
+        {
+            Clear();
+        }
+
+        public override void RemoveByKey(object key)
+        {
+            RemoveAt((int)key);
         }
         #endregion
     }

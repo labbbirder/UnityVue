@@ -7,35 +7,13 @@ using System.Threading;
 
 namespace BBBirder.UnityVue
 {
-    public partial class RDictionary<TKey, TValue> : IWatchableDic<TKey, TValue>
+    public partial class RDictionary<TKey, TValue> : CollectionBase, IWatchableDic<TKey, TValue>
     {
         Dictionary<TKey, TValue> _dictionary = new();
         public ICollection<TKey> Keys => _dictionary.Keys;
         public ICollection<TValue> Values => _dictionary.Values;
 
-        // int IWatchable.SyncId { get; set; }
         byte IWatchable.StatusFlags { get; set; }
-        Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
-        Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
-        CollectionOperationType IWatchableCollection.operation { get; set; }
-        Action<object, object> IWatchableCollection.onAddItem { get; set; }
-        Action<object, object> IWatchableCollection.onRemoveItem { get; set; }
-        Action IWatchableCollection.onClearItems { get; set; }
-
-        private object _syncRoot;
-        public bool IsSynchronized => false;
-        public object SyncRoot
-        {
-
-            get
-            {
-                if (_syncRoot == null)
-                {
-                    Interlocked.CompareExchange<object>(ref _syncRoot, new(), null);
-                }
-                return _syncRoot;
-            }
-        }
 
         IWatchableCollection AsProxy => this;
         private static object _k_count = new();
@@ -48,6 +26,7 @@ namespace BBBirder.UnityVue
             }
         }
         public bool IsReadOnly => false;
+
 
         public TValue this[TKey key]
         {
@@ -68,6 +47,16 @@ namespace BBBirder.UnityVue
                     Add(key, value);
                 }
             }
+        }
+
+        public override void RemoveByKey(object key)
+        {
+            Remove((TKey)key);
+        }
+
+        public override void ClearAll()
+        {
+            Clear();
         }
 
         public void Add(TKey key, TValue value)
@@ -124,17 +113,13 @@ namespace BBBirder.UnityVue
             throw new NotImplementedException();
         }
 
-        public void CopyTo(Array array, int index)
-        {
-            throw new NotImplementedException();
-        }
 
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
             return _dictionary.GetEnumerator();
         }
 
-        public object RawGet(object key)
+        public override object RawGet(object key)
         {
             if (key == _k_count)
                 return _dictionary.Count.BoxNumber();
@@ -145,7 +130,7 @@ namespace BBBirder.UnityVue
             return default(TValue);
         }
 
-        public bool RawSet(object key, object value)
+        public override bool RawSet(object key, object value)
         {
             var contains = _dictionary.ContainsKey((TKey)key);
             _dictionary[(TKey)key] = (TValue)value;
