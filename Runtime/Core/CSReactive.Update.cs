@@ -86,7 +86,7 @@ namespace BBBirder.UnityVue
                 dataRegistry[lutKey] = collection = new();
             }
             collection.Add(topScope);
-            topScope.includedTables.Add((lutKey, collection));
+            topScope.includedTables.Add(collection);
         }
 
 
@@ -97,7 +97,8 @@ namespace BBBirder.UnityVue
                 watched = watched,
                 key = key,
             };
-            if (dataRegistry.TryGetValue(pkey, out var collection))
+            // if (dataRegistry.TryGetValue(pkey, out var collection))
+            if (watched.Scopes != null && watched.Scopes.TryGetValue(key, out var collection))
             {
                 var count = collection.Count;
                 var temp = ArrayPool<WatchScope>.Shared.Rent(count);
@@ -159,6 +160,7 @@ namespace BBBirder.UnityVue
                 {
                     try
                     {
+                        Assert.IsNotNull(scope.effect);
                         scope.effect();
                     }
                     catch (Exception e)
@@ -185,7 +187,7 @@ namespace BBBirder.UnityVue
             while (dirtyScopes.Count > 0)
             {
                 WatchScope dirtyScope = null;
-                foreach (var scp in dirtyScopes)
+                foreach (var (scp, _) in dirtyScopes)
                 {
                     dirtyScope = scp;
                     break;
@@ -194,42 +196,7 @@ namespace BBBirder.UnityVue
                 RunScope(dirtyScope);
                 if (IsScopeClean(dirtyScope) || IsScopeUpdatedTooMuchTimes(dirtyScope))
                 {
-                    dirtyScopes.Remove(dirtyScope);
-                }
-            }
-
-            // while (dirtyScopes.Count + pendingDirtyScopes.Count > 0)
-            // {
-            //     foreach (var scp in pendingDirtyScopes)
-            //     {
-            //         dirtyScopes.Add(scp);
-            //     }
-            //     pendingDirtyScopes.Clear();
-
-            //     foreach (var scp in dirtyScopes)
-            //     {
-            //         RunScope(scp);
-            //         if (IsScopeClean(scp) || IsScopeUpdatedTooMuchTimes(scp))
-            //         {
-            //             removedDirtyScopes.Add(scp);
-            //         }
-            //     }
-
-            //     foreach (var scp in removedDirtyScopes)
-            //     {
-            //         dirtyScopes.Remove(scp);
-            //     }
-            //     removedDirtyScopes.Clear();
-            // }
-
-            foreach (var key in s_emptyCollectionKeys)
-            {
-                if (dataRegistry.TryGetValue(key, out var collection))
-                {
-                    if (collection.Count == 0)
-                    {
-                        dataRegistry.Remove(key);
-                    }
+                    dirtyScopes.Remove(dirtyScope, out _);
                 }
             }
         }
@@ -239,11 +206,11 @@ namespace BBBirder.UnityVue
             scope.isDirty = dirty;
             if (dirty)
             {
-                CSReactive.dirtyScopes.Add(scope);
+                CSReactive.dirtyScopes.TryAdd(scope, true);
             }
             else
             {
-                CSReactive.dirtyScopes.Remove(scope);
+                CSReactive.dirtyScopes.Remove(scope, out _);
             }
         }
 
@@ -260,13 +227,9 @@ namespace BBBirder.UnityVue
         static void ClearScopeDependencies(WatchScope scope)
         {
 
-            foreach (var (key, collection) in scope.includedTables)
+            foreach (var collection in scope.includedTables)
             {
                 collection.Remove(scope);
-                if (collection.Count == 0)
-                {
-                    s_emptyCollectionKeys.Add(key);
-                }
             }
             scope.includedTables.Clear();
         }
@@ -274,29 +237,36 @@ namespace BBBirder.UnityVue
         internal static void FreeScope(WatchScope scope)
         {
             ClearScopeDependencies(scope);
-            CSReactive.dirtyScopes.Remove(scope);
-            // CSReactive.pendingDirtyScopes.Remove(scope);
+            if (scope.lifeKeeper != null)
+            {
+                scope.lifeKeeper.onDestroy -= scope.Dispose;
+            }
+            CSReactive.dirtyScopes.Remove(scope, out _);
         }
 
         #endregion // Scope Management
 
         private struct ActiveScopeRegion : IDisposable
         {
-            private WatchScope scope;
+            private WatchScope prev;
+            private WatchScope current;
             public static ActiveScopeRegion Create(WatchScope scope)
             {
-                CSReactive.stackingScopes.Push(scope);
-                return new()
+                var region = new ActiveScopeRegion()
                 {
-                    scope = scope,
+                    prev = executingScope,
+                    current = scope,
                 };
+                executingScope = scope;
+                return region;
             }
             public void Dispose()
             {
-                if (scope != CSReactive.stackingScopes.Pop())
+                if (current != executingScope)
                 {
                     throw new("stacking scopes not poped in a correct order, are you access this via multi-thread?");
                 }
+                executingScope = prev;
             }
         }
 

@@ -19,6 +19,7 @@ namespace BBBirder.UnityVue
         // bool IsProxyInited { get; set; }
         Action<IWatchable, object> onPropertySet { get; set; }
         Action<IWatchable, object> onPropertyGet { get; set; }
+        Dictionary<object, ScopeCollection> Scopes { get; set; }
 
         //  TODO: 有问题，如果是object类型，那么有可能漏掉代理对象
         /// <summary>

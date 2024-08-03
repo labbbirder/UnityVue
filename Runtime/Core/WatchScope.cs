@@ -48,7 +48,7 @@ namespace BBBirder.UnityVue
         /// a reference copy from data account, remove self when clear dependencies
         /// </summary>
         /// <returns></returns>
-        internal HashSet<(LutKey, ScopeCollection)> includedTables = new();
+        internal HashSet<ScopeCollection> includedTables = new();
 
         public WatchScope(Action effect) : this(effect, null) { }
 
