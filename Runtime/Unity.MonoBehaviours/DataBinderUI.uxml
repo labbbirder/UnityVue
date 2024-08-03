@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <uie:ObjectField label="Target" binding-path="target" />
+    <uie:ObjectField label="Data Provider" binding-path="dataProvider" />
+    <ui:VisualElement name="elements" style="border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px; border-left-color: rgba(0, 0, 0, 0.35); border-right-color: rgba(0, 0, 0, 0.35); border-top-color: rgba(0, 0, 0, 0.35); border-bottom-color: rgba(0, 0, 0, 0.35); margin-top: 6px; margin-bottom: 6px;" />
+    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+        <ui:Button text="Add Expression" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btnAdd" />
+        <ui:Button text="Save" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btnSave" />
+    </ui:VisualElement>
+</ui:UXML>
