@@ -1,6 +1,8 @@
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -50,20 +52,16 @@ namespace BBBirder.UnityVue
         // Fixed(IL2CPP): https://unity.com/releases/editor/beta/2023.1.0b11
         // internal static ConditionalWeakTable<IWatched,Dictionary<string,HashSet<WatchScope>>> dataDeps;
         // #endif
-        private static Dictionary<LutKey, ScopeCollection> dataRegistry = new();
         private static int s_frameIndex;
-        private static bool shouldCollectReference;
-        private static Stack<WatchScope> stackingScopes = new();
-        private static HashSet<WatchScope> dirtyScopes = new();
-        // private static HashSet<WatchScope> pendingDirtyScopes = new();
-        private static HashSet<LutKey> s_emptyCollectionKeys = new();
-        public static DataAccess lastAccess = new();
+        [ThreadStatic] private static bool shouldCollectReference;
+        [ThreadStatic] private static WatchScope executingScope;
+        internal static ConcurrentDictionary<WatchScope, bool> dirtyScopes = new();
 
         static void OnGlobalGet(IWatchable watched, object key)
         {
-            // populate last-access object
-            CSReactive.lastAccess.watchable = watched;
-            CSReactive.lastAccess.propertyKey = key;
+            // // populate last-access object
+            // CSReactive.lastAccess.watchable = watched;
+            // CSReactive.lastAccess.propertyKey = key;
 
             if (!CSReactive.shouldCollectReference) return;
 
@@ -73,17 +71,13 @@ namespace BBBirder.UnityVue
                 if (propertyValue != null) SetProxy(propertyValue);
             }
 
-            if (stackingScopes.Count == 0) return;
+            if (executingScope == null) return;
 
-            var topScope = stackingScopes.Peek();
-            var lutKey = new LutKey()
+            var topScope = executingScope;
+            watched.Scopes ??= new();
+            if (!watched.Scopes.TryGetValue(key, out var collection))
             {
-                watched = watched,
-                key = key,
-            };
-            if (!dataRegistry.TryGetValue(lutKey, out var collection))
-            {
-                dataRegistry[lutKey] = collection = new();
+                watched.Scopes[key] = collection = new();
             }
             collection.Add(topScope);
             topScope.includedTables.Add(collection);
