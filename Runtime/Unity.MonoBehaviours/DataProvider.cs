@@ -5,9 +5,9 @@ using UnityEngine;
 
 namespace BBBirder.UnityVue
 {
-    public class DataProvider : MonoBehaviour
+    public abstract class DataProvider : MonoBehaviour
     {
-        public abstract IWatchable GetData() { get; }
+        public abstract IWatchable GetData();
         public abstract Type DataType { get; }
     }
 }
