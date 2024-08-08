@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using DynamicExpresso;
+using DynamicExpresso.Exceptions;
 using UnityEngine;
 
 namespace BBBirder.UnityVue
@@ -21,18 +22,30 @@ namespace BBBirder.UnityVue
         // Start is called before the first frame update
         void Start()
         {
-            var data = dataProvider.GetData();
-            CSReactive.Reactive(data);
+            var data = dataProvider.TypelessData;
+            dataProvider.listeners.Add(this);
+            if (data != null)
+            {
+                CSReactive.Reactive(data);
+            }
             foreach (var expression in expressions)
             {
                 if (!expression.enable) continue;
                 StartExpression(expression.expression);
             }
         }
+
+        void OnDestroy()
+        {
+            if (dataProvider)
+            {
+                dataProvider.listeners.Remove(this);
+            }
+        }
         public void StartExpression(string expression)
         {
             if (!Application.isPlaying) return;
-            var data = dataProvider?.GetData();
+            var data = dataProvider?.TypelessData;
             if (data is null) return;
             CSReactive.Reactive(data);
             var action = CreatePreparedInterpreter().Parse(expression, new Parameter("this", dataProvider.DataType, null));
@@ -70,17 +83,24 @@ namespace BBBirder.UnityVue
             {
                 CreatePreparedInterpreter().Parse(expression, new Parameter("this", dataProvider.DataType, null));
             }
-            catch (Exception e)
+            catch (ParseException e)
             {
-                return e.Message;
+                return e.GetType().Name + ": " + expression.Insert(e.Position, "<color=#ff0000>") + "</color>";
             }
             return null;
         }
 
-        // Update is called once per frame
-        void Update()
+        public void Refresh()
         {
-
+            foreach (var expression in expressions)
+            {
+                StopExpression(expression.expression);
+            }
+            foreach (var expression in expressions)
+            {
+                if (!expression.enable) continue;
+                StartExpression(expression.expression);
+            }
         }
     }
 }

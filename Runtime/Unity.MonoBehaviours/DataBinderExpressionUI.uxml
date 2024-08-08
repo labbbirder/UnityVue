@@ -4,5 +4,7 @@
         <ui:TextField picking-mode="Ignore" multiline="true" is-delayed="true" name="txtInput" binding-path="expression" style="flex-grow: 1; flex-shrink: 1; margin-left: 7px; margin-top: 0; margin-bottom: 4px;" />
         <ui:Button parse-escape-sequences="true" display-tooltip-when-elided="true" name="btnDelete" style="background-image: url(&apos;project://database/Packages/com.bbbirder.unity-vue/Runtime/Unity.MonoBehaviours/res/imgDelete.png?fileID=21300000&amp;guid=9640e0395b3b07a4dbc07db0bae45a5b&amp;type=3#imgDelete&apos;); background-color: rgba(188, 188, 188, 0); margin-top: 3px; margin-right: 3px; margin-bottom: 3px; margin-left: 6px; width: 16px; height: 16px; padding-top: 0; padding-right: 0; padding-bottom: 0; -unity-background-image-tint-color: rgb(255, 64, 57); border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0;" />
     </ui:VisualElement>
-    <ui:Label tabindex="-1" parse-escape-sequences="true" display-tooltip-when-elided="true" name="txtStatus" style="color: rgb(223, 9, 9); display: none;" />
+    <ui:VisualElement style="flex-grow: 0; flex-direction: row;">
+        <ui:Label tabindex="-1" parse-escape-sequences="true" display-tooltip-when-elided="true" name="txtStatus" style="display: none;" />
+    </ui:VisualElement>
 </ui:UXML>
