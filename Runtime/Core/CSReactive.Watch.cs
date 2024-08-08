@@ -27,9 +27,9 @@ namespace BBBirder.UnityVue
 
         public static RefData<T> Ref<T>(T data)
         {
-            var refData = ObjectPool<RefData<T>>.Get();
-            refData.Init(data);
-            return new RefData<T>(data);
+            // var refData = ObjectPool<RefData<T>>.Get();
+            // refData.Init(data);
+            return SetProxy(new RefData<T>(data));
         }
 
         public static WatchScope WatchEffect(Action effect)

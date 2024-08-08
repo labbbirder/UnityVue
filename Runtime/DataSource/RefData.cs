@@ -4,7 +4,7 @@ using System;
 
 namespace BBBirder.UnityVue
 {
-    public partial class RefData<T> : IWatchable, IDisposable
+    public partial class RefData<T> : IWatchable
     {
         T __rawObject;
         public T Value
@@ -62,12 +62,6 @@ namespace BBBirder.UnityVue
         }
 
         bool IWatchable.IsPropertyWatchable(object key) => typeof(IWatchable).IsAssignableFrom(typeof(T));
-
-        public void Dispose()
-        {
-            __rawObject = default;
-            ObjectPool<RefData<T>>.Recycle(this);
-        }
 
         public static implicit operator T(RefData<T> self)
         {
