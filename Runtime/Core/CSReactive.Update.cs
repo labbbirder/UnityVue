@@ -236,6 +236,11 @@ namespace BBBirder.UnityVue
                 scope.lifeKeeper.onDestroy -= scope.Dispose;
             }
             CSReactive.dirtyScopes.Remove(scope, out _);
+
+            scope.effect = null;
+            scope.normalEffect = null;
+            scope.onDisposed?.Invoke();
+            scope.onDisposed = null;
         }
 
         #endregion // Scope Management

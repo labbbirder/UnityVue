@@ -37,7 +37,7 @@ namespace BBBirder.UnityVue
         public ScopeFlushMode flushMode;
         public IScopeLifeKeeper lifeKeeper;
         public int updateLimit = DEFAULT_UPDATE_LIMIT;
-        public Action effect, normalEffect;
+        public Action effect, normalEffect, onDisposed;
 
         internal bool isDirty = false;
         internal int updatedInOneFrame;
