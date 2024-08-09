@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using System.Linq.Expressions;
 
 namespace BBBirder.UnityVue
 {
@@ -67,6 +68,15 @@ namespace BBBirder.UnityVue
         {
             return self.Value;
         }
+
+        // public static implicit operator Expression<Func<object>>(RefData<T> self)
+        // {
+        //     return () => self.Value;
+        // }
+        // public static implicit operator Expression<Func<T>>(RefData<T> self)
+        // {
+        //     return () => self.Value;
+        // }
 
     }
 }

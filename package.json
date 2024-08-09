@@ -2,7 +2,7 @@
   "name": "com.bbbirder.unity-vue",
   "displayName": "Unity Vue",
   "description": "纯C#下实现的面向数据模块",
-  "version": "1.2.15",
+  "version": "1.2.16",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
   "dependencies": {

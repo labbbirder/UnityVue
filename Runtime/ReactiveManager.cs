@@ -40,6 +40,7 @@ namespace BBBirder.UnityVue
         [RuntimeInitializeOnLoadMethod]
         static void SetupRuntime()
         {
+            _ = Instance;
             Assert.IsNotNull(Instance);
         }
 
