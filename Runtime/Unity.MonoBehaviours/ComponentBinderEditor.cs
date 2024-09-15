@@ -10,10 +10,10 @@ using UnityEngine.UIElements;
 
 namespace BBBirder.UnityVue
 {
-    [CustomEditor(typeof(DataBinder))]
+    [CustomEditor(typeof(ComponentBinder))]
     public class DataBinderEditor : Editor
     {
-        DataBinder binder => target as DataBinder;
+        ComponentBinder binder => target as ComponentBinder;
         const string ROOT_UI_GUID = "eb06b019921e7884dbfdeb06e17b60f5";
         const string ELEMENT_UI_GUID = "67a9fedd041e41c48a972331b10b7c21";
         // [SerializeField] VisualTreeAsset uiAssetRoot;

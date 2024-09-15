@@ -7,28 +7,9 @@ using UnityEngine.Pool;
 
 namespace BBBirder.UnityVue
 {
-    public abstract class DataProvider : MonoBehaviour
+    public abstract class DataProvider : ReactiveBehaviour
     {
-        public IWatchable TypelessData { get; private set; }
-        public List<DataBinder> listeners;
-        protected virtual void Awake()
-        {
-            listeners = CollectionPool<List<DataBinder>, DataBinder>.Get();
-        }
-        protected virtual void OnDestroy()
-        {
-            listeners.Clear();
-            CollectionPool<List<DataBinder>, DataBinder>.Release(listeners);
-        }
-        protected void SetData(IWatchable data)
-        {
-            TypelessData = data;
-            foreach (var lis in listeners)
-            {
-                lis.Refresh();
-            }
-        }
-
+        [Reactive] public IWatchable TypelessData { get; set; }
         public abstract Type DataType { get; }
     }
 
@@ -40,27 +21,26 @@ namespace BBBirder.UnityVue
         public T Data
         {
             get => (T)TypelessData;
-            set => SetData(value);
+            set => TypelessData = value;
         }
         public override Type DataType => typeof(T);
+
         public static DataProvider<T> Instance
         {
             get;
             private set;
         }
+
         protected override void Awake()
         {
             base.Awake();
             Instance = this;
         }
+
         protected override void OnDestroy()
         {
-            base.Awake();
+            base.OnDestroy();
             if (Instance == this) Instance = null;
-        }
-        public virtual void Refresh()
-        {
-
         }
     }
 }
