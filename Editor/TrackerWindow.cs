@@ -9,6 +9,7 @@ using System.Linq;
 using System;
 using System.Diagnostics;
 using Unity.CodeEditor;
+using System.Reflection;
 
 namespace BBBirder.UnityVue.Editor
 {
@@ -110,12 +111,7 @@ namespace BBBirder.UnityVue.Editor
                 Foldout.style.color = target.isDirty ? Color.white : Color.gray;
                 Foldout.userData = null;
                 var frame = target.stackFrames
-                    .Where(f =>
-                    {
-                        var file = f.GetFileName();
-                        return !string.IsNullOrEmpty(file)
-                            && !file.Contains("com.bbbirder.unity-vue");
-                    })
+                    .Where(f => f.GetMethod().GetCustomAttribute<DebuggerHiddenAttribute>() == null)
                     .FirstOrDefault();
                 if (frame == null)
                 {
@@ -123,11 +119,10 @@ namespace BBBirder.UnityVue.Editor
                 }
                 else
                 {
-                    var method = frame.GetMethod();
                     var file = frame.GetFileName();
                     var ln = frame.GetFileLineNumber();
                     var cn = frame.GetFileColumnNumber();
-                    Foldout.text = method.Name
+                    Foldout.text = (target.debugName ?? frame.GetMethod().Name)
                         + "\t" + file + ":" + ln;
                     // Foldout.Q<Label>("txtStacks").text = "<a href=\"Assets/Scripts/Attachment.cs\" line=12>sad</a>";
                     Foldout.userData = (file, ln, cn);
@@ -160,9 +155,23 @@ namespace BBBirder.UnityVue.Editor
                 for (int i = scopes.Count - 1; i >= 0; i--)
                 {
                     var reference = scopes[i];
+                    // remove those collected by gc
                     if (!reference.TryGetTarget(out var target) || target is null)
                     {
                         scopes.RemoveAt(i);
+                        continue;
+                    }
+                    // remove the hiddens
+                    if (target.hideInTracker)
+                    {
+                        scopes.RemoveAt(i);
+                        continue;
+                    }
+                    // remove those completely disconnected from data
+                    if (target.includedTables.Count == 0)
+                    {
+                        scopes.RemoveAt(i);
+                        continue;
                     }
                 }
             }

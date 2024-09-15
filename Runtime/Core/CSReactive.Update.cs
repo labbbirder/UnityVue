@@ -59,10 +59,6 @@ namespace BBBirder.UnityVue
 
         static void OnGlobalGet(IWatchable watched, object key)
         {
-            // // populate last-access object
-            // CSReactive.lastAccess.watchable = watched;
-            // CSReactive.lastAccess.propertyKey = key;
-
             if (!CSReactive.shouldCollectReference) return;
 
             if (watched.IsPropertyWatchable(key))
@@ -233,7 +229,7 @@ namespace BBBirder.UnityVue
             ClearScopeDependencies(scope);
             if (scope.lifeKeeper != null)
             {
-                scope.lifeKeeper.onDestroy -= scope.Dispose;
+                scope.lifeKeeper.onDestroyed -= scope.Dispose;
             }
             CSReactive.dirtyScopes.Remove(scope, out _);
 

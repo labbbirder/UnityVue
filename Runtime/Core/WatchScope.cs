@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 #if UNITY_EDITOR
 #endif
 
@@ -27,7 +28,7 @@ namespace BBBirder.UnityVue
     public interface IScopeLifeKeeper
     {
         bool IsAlive { get; }
-        event Action onDestroy;
+        event Action onDestroyed;
     }
 
     public class WatchScope
@@ -38,13 +39,14 @@ namespace BBBirder.UnityVue
         public IScopeLifeKeeper lifeKeeper;
         public int updateLimit = DEFAULT_UPDATE_LIMIT;
         public Action effect, normalEffect, onDisposed;
-
+        internal bool hideInTracker = false;
         internal bool isDirty = false;
         internal int updatedInOneFrame;
         internal int frameIndex;
 #if ENABLE_UNITY_VUE_TRACKER
         const int MAX_STACK_COUNT = 12;
         internal StackFrame[] stackFrames;
+        internal string debugName;
 #endif
         /// <summary>
         /// a reference copy from data account, remove self when clear dependencies
@@ -66,15 +68,9 @@ namespace BBBirder.UnityVue
 #endif
         }
 
-        public WatchScope WithArguments(WatchScopeArguments arguments)
+        public void SetFlushMode(ScopeFlushMode flushMode)
         {
-
-            if (arguments.updateLimit != 0)
-            {
-                this.updateLimit = arguments.updateLimit;
-            }
-
-            this.flushMode = arguments.flushMode;
+            this.flushMode = flushMode;
             if (flushMode == ScopeFlushMode.Immediate)
             {
                 if (isDirty)
@@ -83,13 +79,24 @@ namespace BBBirder.UnityVue
                     CSReactive.RunScope(this);
                 }
             }
+        }
+
+        public WatchScope WithArguments(WatchScopeArguments arguments)
+        {
+            if (arguments.updateLimit != 0)
+            {
+                this.updateLimit = arguments.updateLimit;
+            }
+
+            this.hideInTracker = arguments.hideInTracker;
+            SetFlushMode(arguments.flushMode);
             return this;
         }
 
         public WatchScope WithLifeKeeper(IScopeLifeKeeper lifeKeeper)
         {
-            lifeKeeper.onDestroy -= Dispose;
-            lifeKeeper.onDestroy += Dispose;
+            lifeKeeper.onDestroyed -= Dispose;
+            lifeKeeper.onDestroyed += Dispose;
             this.lifeKeeper = lifeKeeper;
             return this;
         }
@@ -133,6 +140,7 @@ namespace BBBirder.UnityVue
         /// Determine the maximum times allowed to update in one frame.
         /// </summary>
         public int updateLimit;
+        public bool hideInTracker;
 
         public static implicit operator WatchScopeArguments(ScopeFlushMode flushMode) => new()
         {

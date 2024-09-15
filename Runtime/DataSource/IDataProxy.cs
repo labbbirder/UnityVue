@@ -139,6 +139,7 @@ namespace BBBirder.UnityVue
                 o.onPropertySet?.Invoke(o, name);
             };
         }
+
         public static bool IsPropertyValid(PropertyInfo property)
         {
             if (property.GetCustomAttribute<IgnoreProxyPropertyAttribute>() != null)
@@ -230,6 +231,8 @@ namespace BBBirder.UnityVue
                 }
             }
         }
+        void VisitWatchableMembers(Action<IWatchable> visitor);
+
     }
 
 }

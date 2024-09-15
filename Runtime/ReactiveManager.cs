@@ -14,7 +14,7 @@ namespace BBBirder.UnityVue
     public class UnityReferenceLifeKeeper : IScopeLifeKeeper
     {
         public UnityEngine.Object uo;
-        public event Action onDestroy;
+        public event Action onDestroyed;
         public bool IsAlive => uo;
         public UnityReferenceLifeKeeper(UnityEngine.Object refer)
         {
@@ -22,13 +22,13 @@ namespace BBBirder.UnityVue
         }
         internal void DestroyImmediate()
         {
-            onDestroy?.Invoke();
-            onDestroy = null;
+            onDestroyed?.Invoke();
+            onDestroyed = null;
         }
     }
 
     [ExecuteAlways]
-    public class ReactiveManager : MonoBehaviour
+    public sealed class ReactiveManager : MonoBehaviour
     {
 #if UNITY_EDITOR
         [InitializeOnLoadMethod]

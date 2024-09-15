@@ -206,8 +206,8 @@ namespace BBBirder.UnityVue
             EnsureSize(_Count + 1);
             _array[_Count] = item;
             _Count++;
-            AsDataProxy.onPropertySet?.Invoke(this, (_Count - 1).BoxNumber());
             AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
+            AsDataProxy.onPropertySet?.Invoke(this, (_Count - 1).BoxNumber());
         }
 
         public RList(IEnumerable<T> items)
@@ -257,13 +257,13 @@ namespace BBBirder.UnityVue
             Array.Copy(items, startIndex, _array, _Count, count);
 
             // notify
+            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
             int iend = _Count = _Count + count;
             for (int i = _Count; i < iend; i++)
             {
                 using var _ = StartAddOperation(_Count, _array[i]);
                 AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
             }
-            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
         }
 
         public void Insert(int index, T item)
@@ -279,11 +279,11 @@ namespace BBBirder.UnityVue
             _array[index] = item;
 
             // notify
+            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
             for (int i = index; i < _Count; i++)
             {
                 AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
             }
-            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
         }
 
         public void RemoveAt(int index)

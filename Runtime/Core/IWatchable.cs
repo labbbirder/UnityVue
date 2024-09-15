@@ -21,7 +21,7 @@ namespace BBBirder.UnityVue
         Action<IWatchable, object> onPropertyGet { get; set; }
         Dictionary<object, ScopeCollection> Scopes { get; set; }
 
-        //  TODO: 有问题，如果是object类型，那么有可能漏掉代理对象
+        //  TODO: 如果是object类型，那么有可能漏掉代理对象
         /// <summary>
         /// Override me to improve performance
         /// </summary>
