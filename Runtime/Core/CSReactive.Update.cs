@@ -2,7 +2,12 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
+using BBBirder.UnityInjection;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -131,15 +136,22 @@ namespace BBBirder.UnityVue
                 ClearScopeDependencies(scope);
                 return;
             }
+
             if (scope.frameIndex != s_frameIndex)
             {
                 scope.updatedInOneFrame = 0;
                 scope.frameIndex = s_frameIndex;
             }
-            if (++scope.updatedInOneFrame > scope.updateLimit)
+
+            if (scope.updateLimit != -1
+                && ++scope.updatedInOneFrame > scope.updateLimit)
             {
                 scope.isDirty = true;
-                Logger.Warning("effect times exceed max iter count");
+
+                var frame = scope.stackFrames
+                    .Where(f => f.GetMethod().GetCustomAttribute<DebuggerHiddenAttribute>() == null)
+                    .FirstOrDefault();
+                Logger.Warning("effect times exceed max iter count " + frame?.GetFileName() + frame?.GetFileLineNumber());
                 return;
             }
 
@@ -206,7 +218,10 @@ namespace BBBirder.UnityVue
 
         static bool IsScopeUpdatedTooMuchTimes(WatchScope scope)
         {
-            return scope.updatedInOneFrame > scope.updateLimit && scope.frameIndex == s_frameIndex;
+            return scope.updateLimit != -1
+                && scope.updatedInOneFrame > scope.updateLimit
+                && scope.frameIndex == s_frameIndex
+                ;
         }
 
         static bool IsScopeClean(WatchScope scope)
