@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+
 #if UNITY_5_3_OR_NEWER
 using UnityEngine;
 #endif
@@ -22,6 +25,9 @@ namespace BBBirder.UnityVue
 
         public static T Reactive<T>(T watchable) where T : IWatchable
         {
+            if (watchable is null)
+                return watchable;
+
             return SetProxy(watchable);
         }
 
@@ -32,6 +38,7 @@ namespace BBBirder.UnityVue
             return SetProxy(new RefData<T>(data));
         }
 
+        [DebuggerHidden]
         public static WatchScope WatchEffect(Action effect)
         {
             var scp = new WatchScope(effect);
@@ -39,27 +46,37 @@ namespace BBBirder.UnityVue
             return scp;
         }
 
+        [DebuggerHidden]
         public static WatchScope Watch<T>(Func<T> wf, Action<T, T> effect)
         {
-            T prev = default, curr = default;
+            T prev = default, curr = wf();
             var scp = new WatchScope(
                 () => { prev = curr; curr = wf(); },
-                () => effect(curr, prev)
+                () =>
+                {
+                    if (!EqualityComparer<T>.Default.Equals(curr, prev))
+                    {
+                        effect(curr, prev);
+                    }
+                }
             );
             RunScope(scp, false);
             return scp;
         }
 
+        [DebuggerHidden]
         public static WatchScope Watch<T>(Func<T> wf, Action<T> effect)
         {
             return Watch(wf, (c, _) => { effect(c); });
         }
 
+        [DebuggerHidden]
         public static WatchScope Watch<T>(Func<T> wf, Action effect)
         {
             return Watch(wf, (c, _) => { effect(); });
         }
 
+        [DebuggerHidden]
         public static WatchScope Compute<T>(Func<T> expf, Action<T> setf)
         {
             T t = default;
