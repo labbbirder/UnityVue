@@ -158,6 +158,10 @@ namespace BBBirder.UnityVue
             {
                 return false;
             }
+            if (property.Name is "Item")
+            {
+                return false;
+            }
             if (!s_Varname.IsMatch(property.Name))
             {
                 return false;
