@@ -17,10 +17,11 @@ partial {{declaringType.keyword}} {{declaringType.name}} {
     [Sirenix.OdinInspector.ShowInInspector]
     #endif
 	public {{m.type}} {{m.name}} {
-		get => {{m.raw_name}};
-		set => {{m.raw_name}} = value;
+		get => this.{{m.raw_name}};
+		set => this.{{m.raw_name}} = value;
 	}
 	{{~ end ~}}
+
 {{~ for declaringType in declaring_types ~}}
 }
 {{~ end ~}}

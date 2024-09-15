@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace BBBirder.UnityVue
 {
@@ -10,5 +11,8 @@ namespace BBBirder.UnityVue
         Action<object> onPropertyGet { get; set; }
     }
 
-    public interface IDataProxy : IWatchable { }
+    public partial interface IDataProxy : IWatchable
+    {
+        void VisitWatchableMembers(Action<IWatchable> visitor);
+    }
 }

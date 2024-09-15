@@ -1,7 +1,11 @@
 ﻿
-using System;
 using BBBirder.UnityVue;
+using com.asd.DDd;
+using System;
 
+var obj = new SkillData();
+
+; (obj as IDataProxy).VisitWatchableMembers(m => Console.WriteLine(m));
 Console.WriteLine("Hello world");
 namespace com.asd
 {
@@ -15,10 +19,11 @@ namespace com.asd
 
                 internal string name;
                 [ExportIgnore]
-                Bar bar;
-                int age;
-                List<int>.Enumerator en;
-                void Test()
+                private Bar bar;
+                private int age;
+                private List<int>.Enumerator en;
+
+                private void Test()
                 {
                     this.En = en;
                 }
@@ -27,13 +32,17 @@ namespace com.asd
         }
 
         [ExportFields]
-        public abstract partial class SkillData:IDataProxy
+        public partial class SkillData : IDataProxy
         {
-            float cooldown;
-            float cooldownMax;
-            float deltaCD => Cooldown - CooldownMax;
+            private float cooldown;
+            private float cooldownMax;
+            private BattlerData battler = new();
+            private float deltaCD => Cooldown - CooldownMax;
         }
+        public partial class BattlerData : IDataProxy
+        {
 
+        }
 
     }
 }

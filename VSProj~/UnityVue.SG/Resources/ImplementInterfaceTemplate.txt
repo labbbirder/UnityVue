@@ -12,13 +12,20 @@ using BBBirder.UnityVue;
 {{~ for declaringType in declaring_types ~}}
 partial {{declaringType.keyword}} {{declaringType.name}} {
 {{~ end ~}}
-	{{~ for m in members ~}}
+	{{~ for m in auto_impl_properties ~}}
 	{{m.type}} IWatchable.{{m.name}}
 	{
 		get;
 		set;
 	}
 	{{~ end ~}}
+
+	void IDataProxy.VisitWatchableMembers(Action<IWatchable> visitor)
+	{
+		{{~ for m in members ~}}
+		visitor({{m.name}});
+		{{~ end ~}}
+	}
 {{~ for declaringType in declaring_types ~}}
 }
 {{~ end ~}}

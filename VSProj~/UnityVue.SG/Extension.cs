@@ -1,13 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace UnityVue.SG
 {
     internal static class Extensions
     {
-
 
         public static string GetSimpleName(this INamespaceSymbol ns)
         {
@@ -35,7 +35,7 @@ namespace UnityVue.SG
         //public static string GetFullName(INamedTypeSymbol type)
         //{
         //    var typesChain = type.GetContainingTypesIncludingSelf().Reverse();
-            
+
         //    var ns = typesChain.First().ContainingNamespace.GetSimpleName();
 
         //    if (!string.IsNullOrEmpty(ns))
@@ -48,14 +48,60 @@ namespace UnityVue.SG
         //    }
         //}
 
-        static IEnumerable<INamedTypeSymbol> GetContainingTypesIncludingSelf(this INamedTypeSymbol type)
+        public static IEnumerable<INamedTypeSymbol> GetContainingTypes(this INamedTypeSymbol type, bool includeSelf = true)
         {
+            if (!includeSelf)
+            {
+                type = type?.BaseType;
+            }
 
             while (type != null)
             {
                 yield return type;
                 type = type.ContainingType;
             }
+        }
+
+        public static IEnumerable<ITypeSymbol> GetBaseTypes(this ITypeSymbol type, bool includeSelf = true)
+        {
+            if (!includeSelf)
+            {
+                type = type?.BaseType;
+            }
+
+            while (type != null)
+            {
+                yield return type;
+                type = type.BaseType;
+            }
+        }
+
+        public static bool IsInternalAccessible(this INamedTypeSymbol type)
+        {
+            foreach (var declType in type.GetContainingTypes())
+            {
+                if (declType.DeclaredAccessibility < Accessibility.Internal) return false;
+            }
+            return true;
+        }
+
+        public static bool IsTypeOrSubTypeOf<T>(this ITypeSymbol symbol)
+        {
+            if (typeof(T).IsInterface)
+            {
+                foreach (var interf in symbol.AllInterfaces)
+                {
+                    if (interf is INamedTypeSymbol namedType && namedType.IsFullNameEquals<T>()) return true;
+                }
+            }
+            else
+            {
+                foreach (var baseType in symbol.GetBaseTypes())
+                {
+                    if (baseType is INamedTypeSymbol namedType && namedType.IsFullNameEquals<T>()) return true;
+                }
+            }
+            return false;
         }
 
         public static IEnumerable<T> GetAttributes<T>(this ISymbol type) where T : Attribute
@@ -68,7 +114,7 @@ namespace UnityVue.SG
             return type.GetAttributes<T>().FirstOrDefault();
         }
 
-        static T ToAttribute<T>(this AttributeData data) where T : Attribute
+        private static T ToAttribute<T>(this AttributeData data) where T : Attribute
         {
             if (data is null) return null;
             var constructorArguments = data.ConstructorArguments.Select(a => a.Value).ToArray();
