@@ -4,7 +4,7 @@
     "references": [
         "BBBirder.UnityVue",
         "BBBirder.UnityInjection",
-        "com.bbbirder.directattribute"
+        "BBBirder.Utils.Editor"
     ],
     "includePlatforms": [
         "Editor"

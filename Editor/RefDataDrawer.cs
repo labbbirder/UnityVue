@@ -20,7 +20,7 @@ namespace BBBirder.UnityVue.Editor
             // f = EditorGUI.FloatField(position, f);
             if (EditorGUI.EndChangeCheck())
             {
-                var refData = property.boxedValue as IWatchable;
+                var refData = property.GetPropertyDesc().value as IWatchable;
                 refData.Payload.onAfterSet?.Invoke(refData, "Value");
             }
         }

@@ -97,7 +97,7 @@ namespace BBBirder.UnityVue
                                 RunScope(scp);
                             }
                         }
-                        else if (scp.flushMode == ScopeFlushMode.LateUpdate)
+                        else if (scp.flushMode == ScopeFlushMode.PostUpdate)
                         {
                             if (!scp.IsDisposed)
                             {

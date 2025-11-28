@@ -11,17 +11,13 @@ namespace BBBirder.UnityVue
     public enum ScopeFlushMode
     {
         /// <summary>
-        /// Update on the coming LateUpdate when data changed(default)
+        /// Update on the next `PostUpdate`(after Update and before LateUpdate) when data changed(default)
         /// </summary>
-        /// <typeparam name="bool"></typeparam>
-        LateUpdate,
-
-        // PreUpdate, // It may be confusing for uses
+        PostUpdate,
 
         /// <summary>
         /// Update immediately when data changed
         /// </summary>
-        /// <typeparam name="bool"></typeparam>
         Immediate,
     }
 

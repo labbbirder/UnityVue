@@ -1,5 +1,9 @@
 # UnityVue
-> 此库是本人接下来时间的开发维护重点，原名：CSReactive
+
+![mono support](http://img.shields.io/badge/Mono-support-green)
+![il2cpp support](http://img.shields.io/badge/IL2CPP-support-green)
+![GitHub last commit](http://img.shields.io/github/last-commit/labbbirder/UnityVue)
+![GitHub package.json version](http://img.shields.io/github/package-json/v/labbbirder/UnityVue)
 
 Unity纯C#版的VUE，运行时高效，运行时0GC。
 ## FEATURES
@@ -7,7 +11,7 @@ Unity纯C#版的VUE，运行时高效，运行时0GC。
 * 支持全平台
 * 运行时无GC
 * 递归代理
-* 数据变化时，对相关作用域做脏标记。当前帧的LateUpdate，对脏作用域进行刷新。
+* 数据变化时，对相关作用域做脏标记。当前帧的Update结束后，对脏作用域进行刷新。
 * 支持List、Array等数组成员
 * 可自定义更新时机 : LateUpdate(post) & Immediate(sync)
 * 代理函数: Reactive & Ref
@@ -21,10 +25,14 @@ Unity纯C#版的VUE，运行时高效，运行时0GC。
 * 响应式GameObject和组件
 * 作用域可以与任意一个引用类型绑定，同生命周期
 
-限制
-* 数据源暂不支持字典、集合等其他容器，可以自行实现后提PR
 ## INSTALL
-PackageManager下用git url安装：https://github.com/labbbirder/CSReactive.git
+
+execute command line：
+
+```bash
+openupm add com.bbbirder.unity-vue
+```
+
 ## QUICK START
 添加命名空间
 ```csharp
@@ -83,11 +91,69 @@ partial class CubeData : MonoBehaviour
 }
 
 ```
+
+## Major Concepts
+
+### IScopeLifeKeeper
+
+作用域的生命管理对象。比如，一个Component下有多个作用域，当Component销毁时，这些作用域也要一并销毁，那么，此Component就适合作为一个`IScopeLifeKeeper`。同理，一个UI实体类也可以作为一个`IScopeLifeKeeper`。
+
+### ReactiveBehaviour
+
+继承自MonoBehaviour，并提供了数据绑定接口。
+
+```csharp
+public class MyComp : ReactiveBehaviour
+{
+    public RefData<int> age = new();
+    public RefData<int> ageNextYear = new();
+
+    [Watch]
+    public int __WatchAge
+    {
+        get => age;
+        set => ageNextYear.Value = value + 1;
+    }
+
+    [Watch(ScopeFlushMode.Immediate)] // 指定更新时机
+    public int __WriteNextYearAge
+    {
+        get => age;
+        set => print($"on set age to {value}");
+    }
+
+    [Watch]
+    // 使用WatchArgument`1包装类型获取上一个数值（previous value）
+    public WatchArgument<int> __WatchAge 
+    {
+        get => age;
+        set
+        {
+            var (curr,prev) = value;
+            print($"age changed from {prev} to {curr}");
+        }
+    }
+
+    // 修改age会间接触发此方法更新
+    [WatchEffect]
+    void __PrintAges()
+    {
+        print($"age next year is {ageNextYear.Value}");
+    }
+
+    public void Update()
+    {
+        if (Input.KeyDown(KeyCode.A))
+        {
+            age.Value++;
+        }
+    }
+}
+
+```
+
 ## NOTES
 ### DynamicExpresso
 DynamicExpresso.dll并非官方原版，不要盲目更新它。此程序集在官方的基础上做了一些改动，已使其支持WebGL
 
 DynamicExpresso可以用在响应式组件或GameObject上，如：在Inspector下，给一个Component的字段赋字符串表达式
-### ConditionalWeakTable
-如果此特性可用，为性能和内存最优解。但经测试和检阅资料发现主流Unity版本对此特性支持不佳（包括IL2CPP和MONO），因此使用临时方案实现，代价是较多的内存分配（创建数据代理时）。
-

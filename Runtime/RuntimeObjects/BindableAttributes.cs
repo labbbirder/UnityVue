@@ -180,7 +180,7 @@ namespace BBBirder.UnityVue
         { }
 #endif
 
-        public WatchAttribute(ScopeFlushMode flushMode = ScopeFlushMode.LateUpdate, bool flushOnStartup = false)
+        public WatchAttribute(ScopeFlushMode flushMode = ScopeFlushMode.PostUpdate, bool flushOnStartup = false)
         {
             this.FlushMode = flushMode;
             this.FlushOnStartup = flushOnStartup;
@@ -236,7 +236,7 @@ namespace BBBirder.UnityVue
         { }
 #endif
 
-        public WatchEffectAttribute(ScopeFlushMode flushMode = ScopeFlushMode.LateUpdate)
+        public WatchEffectAttribute(ScopeFlushMode flushMode = ScopeFlushMode.PostUpdate)
         {
             this.FlushMode = flushMode;
         }
