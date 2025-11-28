@@ -2,8 +2,11 @@
     "name": "BBBirder.UnityVue",
     "rootNamespace": "BBBirder.UnityVue",
     "references": [
-        "com.bbbirder.directattribute",
-        "BBBirder.UnityInjection"
+        "BBBirder.DirectAttribute",
+        "BBBirder.UnityInjection",
+        "BBBirder.UnityInjection.Editor",
+        "BBBirder.Utils",
+        "BBBirder.UnityVue.Internals"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -11,7 +14,8 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "DynamicExpresso.Core.dll",
-        "Sirenix.OdinInspector.Attributes.dll"
+        "Sirenix.OdinInspector.Attributes.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

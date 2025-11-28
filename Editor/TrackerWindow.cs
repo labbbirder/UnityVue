@@ -145,7 +145,7 @@ namespace BBBirder.UnityVue.Editor
             {
                 RefreshGlobalTrackerData();
                 lstScopes.RefreshItems();
-                txtDirty.text = CSReactive.dirtyScopes.Count.ToString();
+                txtDirty.text = globalData.scopes.Count(scp => scp.TryGetTarget(out var target) && target.isDirty).ToString();
                 txtTotal.text = globalData.scopes.Count.ToString();
             }
 
@@ -168,7 +168,7 @@ namespace BBBirder.UnityVue.Editor
                         continue;
                     }
                     // remove those completely disconnected from data
-                    if (target.includedTables.Count == 0)
+                    if (!target.isDirty && target.includedTables.Count == 0)
                     {
                         scopes.RemoveAt(i);
                         continue;

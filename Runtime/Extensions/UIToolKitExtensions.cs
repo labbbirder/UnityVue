@@ -6,12 +6,13 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
+using static BBBirder.UnityVue.CastUtils;
+
 namespace BBBirder.UnityVue
 {
-    using static CastUtils;
     public static class UIToolKitExtensions
     {
-
+#warning TODO: 非DEBUG模式下可以考虑更高效的实现
         public static WatchScope Bind<T>(this INotifyValueChanged<T> control, Expression<Func<object>> getter)
         {
             var bodyExp = getter.Body is UnaryExpression castOp ? castOp.Operand : getter.Body;

@@ -6,15 +6,12 @@ namespace BBBirder.UnityVue
 {
     public abstract partial class CollectionBase : IWatchableCollection
     {
-        CollectionOperationType IWatchableCollection.operation { get; set; }
-        public Action<object, object> onAddItem { get; set; }
-        public Action<object, object> onRemoveItem { get; set; }
-        public Action onClearItems { get; set; }
+        [field: NonSerialized] CollectionOperationType IWatchableCollection.operation { get; set; }
+        [field: NonSerialized] public Action<IWatchableCollection, object, object> onAddItem { get; set; }
+        [field: NonSerialized] public Action<IWatchableCollection, object, object> onRemoveItem { get; set; }
+        [field: NonSerialized] public Action<IWatchableCollection> onClearItems { get; set; }
 
-        byte IWatchable.StatusFlags { get; set; }
-        Action<IWatchable, object> IWatchable.onPropertySet { get; set; }
-        Action<IWatchable, object> IWatchable.onPropertyGet { get; set; }
-        Dictionary<object, ScopeCollection> IWatchable.Scopes { get; set; }
+        [field: NonSerialized] WatchablePayload IWatchable.Payload { get; } = new();
 
         public abstract object RawGet(object key);
 

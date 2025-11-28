@@ -1,8 +1,8 @@
+using BBBirder.UnityInjection;
+using BBBirder.UnityVue;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using BBBirder.UnityVue;
-using BBBirder.UnityInjection;
 
 internal partial class Cube : IDataProxy
 {
@@ -31,13 +31,13 @@ public partial class BasicTest : IPrebuildSetup
     [Test]
     public void Cube_Area_Should_Be_Auto_Computed()
     {
-        var cube = CSReactive.Reactive(new Cube());
+        var cube = new Cube();
 
         CSReactive.WatchEffect(() =>
         {
             var halfArea = cube.Length * cube.Width + cube.Length * cube.Height + cube.Width * cube.Height;
             cube.Area = halfArea * 2;
-        }).WithArguments(ScopeFlushMode.Immediate);
+        }, ScopeFlushMode.Immediate);
 
         cube.Length = 2;
         cube.Width = 3;
@@ -52,17 +52,17 @@ public partial class BasicTest : IPrebuildSetup
     [Test]
     public void Cube_Mass_Should_Be_Computed_Recursively()
     {
-        var cube = CSReactive.Reactive(new Cube());
+        var cube = new Cube();
 
         CSReactive.WatchEffect(() =>
         {
             cube.Volume = cube.Length * cube.Width * cube.Height;
-        }).WithArguments(ScopeFlushMode.Immediate);
+        }, ScopeFlushMode.Immediate);
 
         CSReactive.WatchEffect(() =>
         {
             cube.Mass = cube.Volume * cube.Intensity;
-        }).WithArguments(ScopeFlushMode.Immediate);
+        }, ScopeFlushMode.Immediate);
 
         cube.Length = 2;
         cube.Width = 3;
@@ -80,53 +80,53 @@ public partial class BasicTest : IPrebuildSetup
     [Test]
     public void Recursive_Update_Should_Be_Limited()
     {
-        var cube = CSReactive.Reactive(new Cube());
+        var cube = new Cube();
 
+        CSReactive.UpdateLimit = 10;
         CSReactive.WatchEffect(() =>
         {
             cube.Area++;
-        }).WithArguments((
-            flushMode: ScopeFlushMode.Immediate,
-            updateLimit: 10
-        ));
+        }, new()
+        {
+            flushMode = ScopeFlushMode.Immediate,
+        });
 
         Assert.AreEqual(10, cube.Area);
 
         CSReactive.WatchEffect(() =>
         {
             cube.Width = cube.Height + 1;
-        }).WithArguments((
-            flushMode: ScopeFlushMode.Immediate,
-            updateLimit: 10
-        ));
+        }, new()
+        {
+            flushMode = ScopeFlushMode.Immediate,
+        });
 
         CSReactive.WatchEffect(() =>
         {
             cube.Height = cube.Width + 1;
-        }).WithArguments((
-            flushMode: ScopeFlushMode.Immediate,
-            updateLimit: 10
-        ));
+        }, new()
+        {
+            flushMode = ScopeFlushMode.Immediate,
+        });
 
-        Assert.AreEqual(19, cube.Width);
-        Assert.AreEqual(20, cube.Height);
+        CSReactive.UpdateLimit = CSReactive.DEFAULT_UPDATE_LIMIT;
+        Assert.AreEqual(11, cube.Width);
+        Assert.AreEqual(10, cube.Height);
 
     }
 
     [Test]
     public void Scope_Should_Disposed_On_Notification_From_LifeKeeper()
     {
-        var cube = CSReactive.Reactive(new Cube());
+        var cube = new Cube();
 
         var o = new GameObject();
         Assert.True(o);
 
-        var scope = CSReactive.WatchEffect(() =>
+        var scope = o.GetLifeKeeper().WatchEffect(() =>
         {
             cube.Width = cube.Height + 1;
-        })
-        .WithArguments(ScopeFlushMode.Immediate)
-        .WithLifeKeeper(o);
+        }, ScopeFlushMode.Immediate);
 
         cube.Height = 100;
         Assert.AreEqual(101, cube.Width);
@@ -143,14 +143,14 @@ public partial class BasicTest : IPrebuildSetup
     [Test]
     public void Child_Proxy_Should_Be_Watched_As_Well()
     {
-        var cubeGroup = CSReactive.Reactive(new CubeGroup());
+        var cubeGroup = new CubeGroup();
 
         var scope = CSReactive.WatchEffect(() =>
         {
             var e = cubeGroup.Extend;
             var a = cubeGroup.cubeA;
             cubeGroup.cubeA.Volume = (a.Length + e) * (a.Height + e) * (a.Width + e);
-        }).WithArguments(ScopeFlushMode.Immediate);
+        }, ScopeFlushMode.Immediate);
 
         cubeGroup.cubeA.Width = 1;
         cubeGroup.cubeA.Height = 2;
@@ -173,13 +173,13 @@ public partial class BasicTest : IPrebuildSetup
     [Test]
     public void List_Add_One()
     {
-        var cubeGroup = CSReactive.Reactive(new CubeGroup());
+        var cubeGroup = new CubeGroup();
 
         var cnt = 0;
         var scope = CSReactive.WatchEffect(() =>
         {
             cnt = cubeGroup.cubeList.Count;
-        }).WithArguments(ScopeFlushMode.Immediate);
+        }, ScopeFlushMode.Immediate);
 
     }
 

@@ -3,36 +3,43 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace BBBirder.UnityVue
 {
+
     public partial class RDictionary<TKey, TValue> : CollectionBase, IWatchableDic<TKey, TValue>
     {
         Dictionary<TKey, TValue> _dictionary = new();
+        [field: NonSerialized] WatchablePayload IWatchable.Payload { get; } = new();
         public ICollection<TKey> Keys => _dictionary.Keys;
         public ICollection<TValue> Values => _dictionary.Values;
-
-        byte IWatchable.StatusFlags { get; set; }
-
         IWatchableCollection AsProxy => this;
+        WatchablePayload Payload => AsProxy.Payload;
         private static object _k_count = new();
         public int Count
         {
             get
             {
-                AsProxy.onPropertyGet?.Invoke(this, _k_count);
+                Payload.onBeforeGet?.Invoke(this, _k_count);
                 return _dictionary.Count;
             }
         }
         public bool IsReadOnly => false;
 
+        internal static Func<TKey, object> boxer;
+
+        static RDictionary()
+        {
+            RuntimeHelpers.RunClassConstructor(typeof(RDictInitializer<TValue>).TypeHandle);
+        }
 
         public TValue this[TKey key]
         {
             get
             {
-                AsProxy.onPropertyGet?.Invoke(this, key);
+                Payload.onBeforeGet?.Invoke(this, boxer != null ? boxer(key) : key);
                 return _dictionary[key];
             }
             set
@@ -40,7 +47,7 @@ namespace BBBirder.UnityVue
                 if (_dictionary.ContainsKey(key))
                 {
                     _dictionary[key] = value;
-                    AsProxy.onPropertySet?.Invoke(this, key);
+                    Payload.onAfterSet?.Invoke(this, boxer != null ? boxer(key) : key);
                 }
                 else
                 {
@@ -64,8 +71,8 @@ namespace BBBirder.UnityVue
             if (_dictionary.ContainsKey(key)) throw new ArgumentException($"key {key} already exists");
             using var _ = AsProxy.StartAddOperation(key, value);
             _dictionary.Add(key, value);
-            AsProxy.onPropertySet?.Invoke(this, key);
-            AsProxy.onPropertySet?.Invoke(this, _k_count);
+            Payload.onAfterSet?.Invoke(this, key);
+            Payload.onAfterSet?.Invoke(this, _k_count);
         }
 
         public void Add(KeyValuePair<TKey, TValue> item)
@@ -73,38 +80,44 @@ namespace BBBirder.UnityVue
             Add(item.Key, item.Value);
         }
 
-        static Stack<TKey> s_keys = new();
+        [ThreadStatic] static Stack<TKey> t_removingkeys;
         public void Clear()
         {
             using var _ = AsProxy.StartClearOperation();
 
-            s_keys ??= new();
+            t_removingkeys ??= new();
+            t_removingkeys.Clear();
             foreach (var (k, v) in _dictionary)
             {
-                s_keys.Push(k);
-            }
-
-            foreach (var k in s_keys)
-            {
-                _dictionary[k] = default;
-                AsProxy.onPropertySet?.Invoke(this, k);
+                t_removingkeys.Push(k);
             }
 
             _dictionary.Clear();
-            AsProxy.onPropertySet?.Invoke(this, _k_count);
+
+            foreach (var k in t_removingkeys)
+            {
+                Payload.onAfterSet?.Invoke(this, k);
+            }
+
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<TKey>())
+            {
+                t_removingkeys.Clear();
+            }
+
+            Payload.onAfterSet?.Invoke(this, _k_count);
         }
 
         public bool Contains(KeyValuePair<TKey, TValue> item)
         {
-            var found = _dictionary.Contains(item);
-            AsProxy.onPropertyGet?.Invoke(this, item.Key);
-            return found;
+            return TryGetValue(item.Key, out var value)
+                && EqualityComparer<TValue>.Default.Equals(value, item.Value)
+                ;
         }
 
         public bool ContainsKey(TKey key)
         {
             var found = _dictionary.ContainsKey(key);
-            AsProxy.onPropertyGet?.Invoke(this, key);
+            Payload.onBeforeGet?.Invoke(this, key);
             return found;
         }
 
@@ -113,8 +126,17 @@ namespace BBBirder.UnityVue
             throw new NotImplementedException();
         }
 
+        public Dictionary<TKey, TValue>.Enumerator GetEnumerator()
+        {
+            Payload.onBeforeGet?.Invoke(this, _k_count);
+            return _dictionary.GetEnumerator();
+        }
+        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
+        {
+            return _dictionary.GetEnumerator();
+        }
 
-        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+        IEnumerator IEnumerable.GetEnumerator()
         {
             return _dictionary.GetEnumerator();
         }
@@ -132,17 +154,17 @@ namespace BBBirder.UnityVue
 
         public override bool RawSet(object key, object value)
         {
-            var contains = _dictionary.ContainsKey((TKey)key);
+            // var found = _dictionary.ContainsKey((TKey)key);
             _dictionary[(TKey)key] = (TValue)value;
-            return contains;
+            return true;
         }
 
         private void RemoveInternal(TKey key, TValue v)
         {
             using var _ = AsProxy.StartRemoveOperation(key, v);
             var found = _dictionary.Remove(key);
-            AsProxy.onPropertySet?.Invoke(this, key);
-            AsProxy.onPropertySet?.Invoke(this, _k_count);
+            Payload.onAfterSet?.Invoke(this, key);
+            Payload.onAfterSet?.Invoke(this, _k_count);
         }
 
         public bool Remove(TKey key)
@@ -152,6 +174,7 @@ namespace BBBirder.UnityVue
                 RemoveInternal(key, v);
                 return true;
             }
+
             return false;
         }
 
@@ -162,20 +185,39 @@ namespace BBBirder.UnityVue
                 RemoveInternal(item.Key, item.Value);
                 return true;
             }
+
             return false;
         }
 
         public bool TryGetValue(TKey key, out TValue value)
         {
             var found = _dictionary.TryGetValue(key, out value);
-            AsProxy.onPropertyGet?.Invoke(this, key);
+            Payload.onBeforeGet?.Invoke(this, key);
             return found;
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        public TValue GetValueOrDefault(TKey key, TValue value = default)
         {
-            return _dictionary.GetEnumerator();
+            if (TryGetValue(key, out var v))
+            {
+                return v;
+            }
+
+            return value;
         }
+
     }
 
+    static class RDictInitializer<TValue>
+    {
+        static RDictInitializer()
+        {
+            RDictionary<int, TValue>.boxer = CastUtils.BoxNumber;
+            RDictionary<uint, TValue>.boxer = CastUtils.BoxNumber;
+            RDictionary<short, TValue>.boxer = CastUtils.BoxNumber;
+            RDictionary<ushort, TValue>.boxer = CastUtils.BoxNumber;
+            RDictionary<sbyte, TValue>.boxer = CastUtils.BoxNumber;
+            RDictionary<byte, TValue>.boxer = CastUtils.BoxNumber;
+        }
+    }
 }

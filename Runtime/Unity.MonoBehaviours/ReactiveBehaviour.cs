@@ -1,60 +1,65 @@
 using System;
 using System.Collections.Generic;
-using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace BBBirder.UnityVue
 {
-    public abstract class ReactiveBehaviour : MonoBehaviour, IWatchable
+    public abstract partial class ReactiveBehaviour : MonoBehaviour, IWatchable, IDataBinder
     {
-        private bool _isInited;
-        public int SyncId { get; set; }
-        public byte StatusFlags { get; set; }
-        public Action<IWatchable, object> onPropertySet { get; set; }
-        public Action<IWatchable, object> onPropertyGet { get; set; }
-        public Dictionary<object, ScopeCollection> Scopes { get; set; }
+        [field: NonSerialized] WatchablePayload IWatchable.Payload { get; } = new();
+        public RefData<bool> _isEnabled = new(false);
 
-        public void Init()
+        [field: NonSerialized] SimpleList<WatchScope> IScopeLifeKeeper.Scopes { get; } = new();
+        [field: NonSerialized] public bool IsBinded { get; set; }
+
+        public virtual bool IsEnabled => InternalEnabledState;
+
+        protected internal bool InternalEnabledState
         {
-            if (_isInited) return;
-            CSReactive.Reactive(this);
-            OnInit();
-            _isInited = true;
+            get => _isEnabled;
+            private set => _isEnabled.Value = value;
         }
 
-        protected virtual void OnInit()
-        {
+        bool IScopeLifeKeeper.IsAlive => !!this;
+        public IDataBinder AsDataBinder => this;
 
+        protected virtual void OnEnable()
+        {
+            InternalEnabledState = true;
+        }
+
+        protected virtual void OnDisable()
+        {
+            InternalEnabledState = false;
         }
 
         public object RawGet(object key)
         {
-            if (ReactiveAttribute.globalRawGetters[this.GetType()].TryGetValue(key, out var rawGetter))
-            {
-                return rawGetter(this);
-            }
-            return default;
+            ReactiveAttribute.TryGetInternal(this, key, out var value);
+            return value;
         }
 
         public bool RawSet(object key, object value)
         {
-            if (ReactiveAttribute.globalRawSetters[this.GetType()].TryGetValue(key, out var rawSetter))
-            {
-                rawSetter(this, value);
-                return true;
-            }
-            return false;
+            return ReactiveAttribute.TrySetInternal(this, key, value);
         }
 
+        /// <summary>
+        /// Init `ReactiveBehaviour`, in which this will be watch, meanwhile, property IsBind will be watch.
+        /// Once Isbind is set to TRUE, all watching members will be bind immediately.
+        /// </summary>
         protected virtual void Awake()
         {
-            Init();
+            AsDataBinder.Bind();
         }
 
         protected virtual void OnDestroy()
         {
-            Scopes?.Clear();
+            AsDataBinder.Unbind();
+            ; (this as IWatchable).Payload.Clear();
         }
 
+        public virtual void OnBind() { }
+        public virtual void OnUnbind() { }
     }
 }

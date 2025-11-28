@@ -2,11 +2,13 @@
   "name": "com.bbbirder.unity-vue",
   "displayName": "Unity Vue",
   "description": "纯C#下实现的面向数据模块",
-  "version": "1.3.0",
+  "version": "1.4.3",
   "hideInEditor": false,
   "author": "bbbirder <502100554@qq.com>",
   "dependencies": {
-    "com.bbbirder.unity-injection": "2.0.18"
+    "com.bbbirder.unity-injection": "2.1.4",
+    "com.bbbirder.utils": "0.1.0",
+    "org.nuget.system.runtime.compilerservices.unsafe": "6.1.2"
   },
   "samples": [
     {
@@ -14,5 +16,5 @@
       "path": "Samples~/SimpleCompute"
     }
   ],
-  "gitHead": "fa49cc070f60bda404513e03179ce070c40b41ae"
+  "gitHead": "8856af7f13f652d12f057d26aa666a0b10b92d04"
 }

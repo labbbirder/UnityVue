@@ -9,7 +9,8 @@ namespace BBBirder.UnityVue
         Warning,
         Error,
     }
-    public static class Logger
+
+    internal static class Logger
     {
         private static bool InUnityEnv;
         internal static LoggerLevel loggerLevel = LoggerLevel.Verbose;

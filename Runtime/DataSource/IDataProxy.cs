@@ -1,42 +1,37 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using BBBirder.UnityInjection;
-using UnityEngine.Scripting;
 
 namespace BBBirder.UnityVue
 {
     /// <summary>
-    /// Derive from me will make a normal object watchable
+    /// Derive from me will make a normal object watchable (only includes properties in non-abstract subtypes)
     /// </summary>
     public interface IDataProxy : IWatchable, IInjectionProvider
     {
-        const BindingFlags propertyBindingFlags = 0
+        const BindingFlags PropertyBindingFlags = 0
             | BindingFlags.Instance
             | BindingFlags.NonPublic
             | BindingFlags.Public
             | BindingFlags.DeclaredOnly
             ;
-        const BindingFlags proxyBindingFlags = 0
+        const BindingFlags ProxyBindingFlags = 0
             | BindingFlags.Static
             | BindingFlags.NonPublic
             | BindingFlags.Public
             | BindingFlags.DeclaredOnly
             ;
+
         static Dictionary<Type, Dictionary<string, Func<object, object>>> globalRawGetters = new();
         static Dictionary<Type, Dictionary<string, Action<object, object>>> globalRawSetters = new();
         static Dictionary<Type, HashSet<string>> globalWatchableProperties = new();
         static object[] s_args = new object[4];
         static MethodInfo s_proxyGet, s_proxySet;
-        static Regex s_Varname = new Regex(@"^[_a-zA-Z][_a-zA-Z0-9]*$");
-
-        bool IWatchable.IsPropertyWatchable(object key)
-        {
-            var sk = key is string s ? s : Convert.ToString(key);
-            return IsPropertyWatchable(this.GetType(), sk);
-        }
+        static Regex s_Varname = new(@"^[_a-zA-Z][_a-zA-Z0-9]*$");
 
         static bool IsPropertyWatchable(Type type, string key)
         {
@@ -44,6 +39,7 @@ namespace BBBirder.UnityVue
             {
                 return false;
             }
+
             if (watchableProperties.Contains(key))
             {
                 return true;
@@ -56,12 +52,13 @@ namespace BBBirder.UnityVue
 
         static bool TryGetInternal(IWatchable self, Type type, string key, out object value)
         {
-            if (type == null || !globalRawGetters.TryGetValue(type, out var getters))
+            if (type == null)
             {
                 value = default;
                 return false;
             }
-            if (getters.TryGetValue(key, out var getter))
+
+            if (globalRawGetters.TryGetValue(type, out var getters) && getters.TryGetValue(key, out var getter))
             {
                 value = getter(self);
                 return true;
@@ -74,11 +71,12 @@ namespace BBBirder.UnityVue
 
         static bool TrySetInternal(IWatchable self, Type type, string key, object value)
         {
-            if (type == null || !globalRawSetters.TryGetValue(type, out var setters))
+            if (type == null)
             {
                 return false;
             }
-            if (setters.TryGetValue(key, out var setter))
+
+            if (globalRawSetters.TryGetValue(type, out var setters) && setters.TryGetValue(key, out var setter))
             {
                 setter(self, value);
                 return true;
@@ -108,82 +106,93 @@ namespace BBBirder.UnityVue
             return TrySetInternal(this, this.GetType(), sk, value);
         }
 
-        static Func<C, T> ProxyGet<C, T>(Type thisType, string name, Func<C, T> rawGetter, object _) where C : IWatchable
+        static Func<TKlass, TProp> ProxyGet<TKlass, TProp>(Type thisType, string name, Func<TKlass, TProp> rawGetter, object _) where TKlass : IWatchable
         {
             if (!globalRawGetters.TryGetValue(thisType, out var getters))
             {
                 globalRawGetters[thisType] = getters = new();
             }
-            getters[name] = (object o) => rawGetter((C)o);
+
+            getters[name] = (object o) => rawGetter((TKlass)o);
 
             return o =>
             {
-                o.onPropertyGet?.Invoke(o, name);
+                o.Payload.onBeforeGet?.Invoke(o, name);
                 return rawGetter.Invoke(o);
             };
         }
 
-        static Action<C, T> ProxySet<C, T>(Type thisType, string name, Action<C, T> rawSetter, Func<C, T> rawGetter) where C : IWatchable
+        static Action<TKlass, TProp> ProxySet<TKlass, TProp>(Type thisType, string name, Action<TKlass, TProp> rawSetter, Func<TKlass, TProp> rawGetter) where TKlass : IWatchable
         {
             if (!globalRawSetters.TryGetValue(thisType, out var setters))
             {
                 globalRawSetters[thisType] = setters = new();
             }
-            setters[name] = (object o, object v) => rawSetter((C)o, (T)v);
 
-            var comparer = EqualityComparer<T>.Default;
+            setters[name] = (object o, object v) => rawSetter((TKlass)o, (TProp)v);
+
+            var comparer = EqualityComparer<TProp>.Default;
             return (o, v) =>
             {
                 if (comparer.Equals(v, rawGetter(o))) return;
                 rawSetter.Invoke(o, v);
-                o.onPropertySet?.Invoke(o, name);
+                o.Payload.onAfterSet?.Invoke(o, name);
             };
         }
 
         public static bool IsPropertyValid(PropertyInfo property)
         {
-            if (property.GetCustomAttribute<IgnoreProxyPropertyAttribute>() != null)
+            if (property.GetCustomAttribute<IgnoreProxyAttribute>() != null)
             {
                 return false;
             }
-            if (property.PropertyType.GetCustomAttribute<IgnoreProxyPropertyAttribute>() != null)
+
+            if (property.PropertyType.GetCustomAttribute<IgnoreProxyAttribute>() != null)
             {
                 return false;
             }
+
             if (property.PropertyType.IsSubclassOf(typeof(Delegate)))
             {
                 return false;
             }
+
             if (!property.CanRead || !property.CanWrite)
             {
                 return false;
             }
+
             if (property.Name is "Item")
             {
                 return false;
             }
+
             if (!s_Varname.IsMatch(property.Name))
             {
                 return false;
             }
+
             return true;
         }
+
         public static IEnumerable<PropertyInfo> GetValidProperties(Type targetType)
         {
-            if (targetType.IsAbstract || targetType.IsInterface)
-                yield break;
-
-            foreach (var property in targetType.GetProperties(propertyBindingFlags))
+            for (var baseType = targetType; baseType != null && typeof(IDataProxy).IsAssignableFrom(baseType); baseType = baseType.BaseType)
             {
-                if (IsPropertyValid(property))
-                    yield return property;
+                // Do traverse abstract base types, base type has no opportunity to execute.
+                if (!baseType.IsAbstract && baseType != targetType) continue;
+                foreach (var property in baseType.GetProperties(PropertyBindingFlags))
+                {
+                    if (IsPropertyValid(property))
+                        yield return property;
+                }
             }
         }
 
         public static IEnumerable<InjectionInfo> ProvideInjectionsForProperty(Type thisType, PropertyInfo property)
         {
-            s_proxyGet ??= typeof(IDataProxy).GetMethod(nameof(ProxyGet), proxyBindingFlags);
-            s_proxySet ??= typeof(IDataProxy).GetMethod(nameof(ProxySet), proxyBindingFlags);
+            s_proxyGet ??= typeof(IDataProxy).GetMethod(nameof(ProxyGet), ProxyBindingFlags);
+            s_proxySet ??= typeof(IDataProxy).GetMethod(nameof(ProxySet), ProxyBindingFlags);
             var targetType = property.DeclaringType;
             var name = property.Name;
 
@@ -193,8 +202,10 @@ namespace BBBirder.UnityVue
                 {
                     globalWatchableProperties[targetType] = watchableProperties = new();
                 }
+
                 watchableProperties.Add(name);
             }
+
             var instGetMethod = s_proxyGet.GetGenericMethodDefinition().MakeGenericMethod(targetType, property.PropertyType);
             if (property.GetMethod != null)
             {
@@ -235,8 +246,29 @@ namespace BBBirder.UnityVue
                 }
             }
         }
-        void VisitWatchableMembers(Action<IWatchable> visitor);
 
+        /// <summary>
+        /// Trigger property change callbacks without equality check.
+        /// </summary>
+        /// <param name="propertyKey"></param>
+        public void ForceNotifyPropertyChange(object propertyKey)
+        {
+            Payload.onAfterSet?.Invoke(this, propertyKey);
+        }
     }
+
+    public static class DataProxyExtensions
+    {
+        /// <summary>
+        /// Trigger property change callbacks without equality check.
+        /// </summary>
+        /// <param name="propertyKey"></param>
+        public static void ForceNotifyPropertyChange(this IDataProxy proxy, object propertyKey)
+        {
+            proxy.Payload.onAfterSet?.Invoke(proxy, propertyKey);
+        }
+    }
+
+
 
 }

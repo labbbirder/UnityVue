@@ -1,11 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace BBBirder.UnityVue
 {
+    [DebuggerDisplay("accessed {accessSource.Item2} of {accessSource.Item1}")]
     public class ScopeCollection : ICollection<WatchScope>
     {
+        public (IWatchable watchable, object key) accessSource; // used for debug, can be removed safely
         // 一个Collection通常不会有太多元素，所以使用List实现
         private List<WatchScope> m_List;
         public int Count => m_List.Count;
@@ -16,6 +19,7 @@ namespace BBBirder.UnityVue
         {
             get => m_List[index];
         }
+
         public ScopeCollection(int Capacity = 4)
         {
             m_List = new(Capacity);
@@ -52,14 +56,19 @@ namespace BBBirder.UnityVue
             m_List.CopyTo(array, arrayIndex);
         }
 
-        public IEnumerator<WatchScope> GetEnumerator()
+        public List<WatchScope>.Enumerator GetEnumerator()
         {
             return m_List.GetEnumerator();
         }
 
+        IEnumerator<WatchScope> IEnumerable<WatchScope>.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return m_List.GetEnumerator();
+            return GetEnumerator();
         }
 
     }

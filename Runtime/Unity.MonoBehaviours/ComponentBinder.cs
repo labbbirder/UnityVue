@@ -7,8 +7,8 @@ using UnityEngine;
 
 namespace BBBirder.UnityVue
 {
-
-    public class ComponentBinder : BindableBehaviour
+    [Obsolete("Need Review")]
+    public class ComponentBinder : ReactiveBehaviour
     {
         [Serializable]
         public struct ExpressionItem
@@ -20,15 +20,11 @@ namespace BBBirder.UnityVue
         public List<ExpressionItem> expressions = new() { new() { enable = true } };
         public DataProvider dataProvider;
         private Dictionary<string, WatchScope> activeScopes = new();
-        public override bool IsBinded => dataProvider.TypelessData != null;
 
         void Start()
         {
             var data = dataProvider.TypelessData;
-            if (data != null)
-            {
-                CSReactive.Reactive(data);
-            }
+
             foreach (var expression in expressions)
             {
                 if (!expression.enable) continue;
@@ -39,9 +35,10 @@ namespace BBBirder.UnityVue
         public void StartExpression(string expression)
         {
             if (!Application.isPlaying) return;
+
             var data = dataProvider?.TypelessData;
             if (data is null) return;
-            CSReactive.Reactive(data);
+
             var action = CreatePreparedInterpreter().Parse(expression, new Parameter("this", dataProvider.DataType, null));
             if (!activeScopes.ContainsKey(expression))
             {

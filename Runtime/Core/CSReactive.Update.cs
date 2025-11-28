@@ -7,292 +7,395 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using BBBirder.UnityInjection;
-using UnityEngine;
-using UnityEngine.Assertions;
 
 namespace BBBirder.UnityVue
 {
-    internal struct LutKey : IEquatable<LutKey>
-    {
-        public IWatchable watched;
-        public object key;
-        public override int GetHashCode()
-        {
-            return watched.GetHashCode();
-        }
-        public override bool Equals(object obj)
-        {
-            if (obj is not LutKey lutKey || obj is null)
-            {
-                return false;
-            }
-            return object.ReferenceEquals(watched, lutKey.watched)
-                && object.Equals(key, lutKey.key);
-        }
-        public override string ToString()
-        {
-            return $"{watched} -> {key}";
-        }
-
-        public bool Equals(LutKey lutKey)
-        {
-            return object.ReferenceEquals(watched, lutKey.watched)
-                && object.Equals(key, lutKey.key);
-        }
-    }
-
     public partial class CSReactive
     {
+        internal const int DEFAULT_UPDATE_LIMIT = 100;
 
-        public struct DataAccess
+        private static long s_stackUpdateCount;
+        private static long s_cleanUpdateCount;
+        [ThreadStatic] private static bool s_shouldCollectReference;
+        [ThreadStatic] internal static WatchScope s_executingScope;
+        private static readonly HashSet<WatchScope> s_dirtyScopes = new();
+        private static readonly ArrayPool<WatchScope> s_tempScopesPool = ArrayPool<WatchScope>.Create();
+        private static readonly HashSet<WatchScope> s_exceededScopes = new();
+        public static int UpdateLimit = DEFAULT_UPDATE_LIMIT;
+
+        // TODO: replace key to generic type
+        static ConcurrentQueue<(IWatchable watchable, object key)> shared_accessQueue = new();
+        internal static void OnGlobalBeforeGetProperty(IWatchable watched, object key)
         {
-            public IWatchable watchable;
-            public object propertyKey;
-        }
-
-        // #if UNITY_2023_3_OR_NEWER
-        // See: https://issuetracker.unity3d.com/issues/crashes-on-garbagecollector-collectincremental-when-entering-the-play-mode
-        // Implement(IL2CPP): https://unity.com/releases/editor/whats-new/2021.2.1
-        // Fixed(IL2CPP): https://unity.com/releases/editor/beta/2023.1.0b11
-        // internal static ConditionalWeakTable<IWatched,Dictionary<string,HashSet<WatchScope>>> dataDeps;
-        // #endif
-        private static int s_frameIndex;
-        [ThreadStatic] private static bool shouldCollectReference;
-        [ThreadStatic] private static WatchScope executingScope;
-        internal static ConcurrentDictionary<WatchScope, bool> dirtyScopes = new();
-
-        static void OnGlobalGet(IWatchable watched, object key)
-        {
-            if (!CSReactive.shouldCollectReference) return;
-
-            if (watched.IsPropertyWatchable(key))
+#if !PLATFORM_WEBGL
+            if (Thread.CurrentThread.ManagedThreadId != 1)
             {
-                var propertyValue = watched.RawGet(key) as IWatchable;
-                if (propertyValue != null) SetProxy(propertyValue);
+                // shared_accessQueue.Enqueue((false, s_executingScope, watched, key));
+                // Logger.Warning($"Reject to access {key} on {watched} in non-main thread.");
+                return;
+            }
+#endif
+
+            if (!s_shouldCollectReference)
+            {
+                return;
             }
 
-            if (executingScope == null) return;
+            /** UPDATE: watchable will be watched by default, so we dont need it anymore. **/
+            //             if (watched.IsPropertyWatchable(key))
+            //             {
+            //                 if (watched.RawGet(key) is IWatchable propertyValue)
+            //                     MakeProxy(propertyValue);
+            //             }
 
-            var topScope = executingScope;
-            watched.Scopes ??= new();
-            if (!watched.Scopes.TryGetValue(key, out var collection))
+            if (s_executingScope == null)
             {
-                watched.Scopes[key] = collection = new();
+                return;
             }
-            collection.Add(topScope);
-            topScope.includedTables.Add(collection);
+
+            RegisterScopeDependency(s_executingScope, watched, key);
         }
 
-
-        static void OnGlobalSet(IWatchable watched, object key)
+        internal static void OnGlobalAfterSetProperty(IWatchable watched, object key)
         {
-            var pkey = new LutKey()
+#if !PLATFORM_WEBGL
+            if (Thread.CurrentThread.ManagedThreadId != 1)
             {
-                watched = watched,
-                key = key,
-            };
-            // if (dataRegistry.TryGetValue(pkey, out var collection))
-            if (watched.Scopes != null && watched.Scopes.TryGetValue(key, out var collection))
+                shared_accessQueue.Enqueue((watched, key));
+                // Logger.Warning($"Reject to access {key} on {watched} in non-main thread.");
+                return;
+            }
+#endif
+
+            var payload = watched.Payload;
+            if (payload != null && payload.Scopes.TryGetValue(key, out var collection))
             {
                 var count = collection.Count;
-                var temp = ArrayPool<WatchScope>.Shared.Rent(count);
-                collection.CopyTo(temp);
+                var tempScopes = s_tempScopesPool.Rent(count);
 
-                for (int i = 0; i < count; i++)
+                try
                 {
-                    var scp = temp[i];
-                    if (scp.flushMode == ScopeFlushMode.Immediate)
+                    collection.CopyTo(tempScopes);
+
+                    // Flush all scopes
+                    for (int i = 0; i < count; i++)
                     {
-                        RunScope(scp);
-                    }
-                    else if (scp.flushMode == ScopeFlushMode.LateUpdate)
-                    {
-                        SetDirty(scp);
+                        var scp = tempScopes[i];
+                        if (scp.flushMode == ScopeFlushMode.Immediate)
+                        {
+                            if (!scp.IsDisposed)
+                            {
+                                /** Unity IL2CPP icall of RuntimeHelpers::SufficientExecutionStack always returns true **/
+
+                                // try
+                                // {
+                                //     RuntimeHelpers.EnsureSufficientExecutionStack();
+                                // }
+                                // catch { }
+
+                                Interlocked.Increment(ref s_stackUpdateCount);
+                                RunScope(scp);
+                            }
+                        }
+                        else if (scp.flushMode == ScopeFlushMode.LateUpdate)
+                        {
+                            if (!scp.IsDisposed)
+                            {
+                                SetDirty(scp);
+                            }
+                        }
+                        else
+                        {
+                            throw new NotImplementedException("Unreachable Assertion!");
+                        }
                     }
                 }
-                ArrayPool<WatchScope>.Shared.Return(temp, true);
+                finally
+                {
+                    s_tempScopesPool.Return(tempScopes, true);
+                }
             }
         }
 
-        private static T SetProxy<T>(T watched) where T : IWatchable
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void RegisterScopeDependency(WatchScope scope, IWatchable watchable, object key)
         {
-            if ((watched.StatusFlags & (byte)PreservedWatchableFlags.Reactive) == 0)
+            var payload = watchable.Payload;
+
+            if (!payload.Scopes.TryGetValue(key, out var collection))
             {
-                watched.onPropertyGet += OnGlobalGet;
-                watched.onPropertySet += OnGlobalSet;
-                watched.StatusFlags |= (byte)PreservedWatchableFlags.Reactive;
+                payload.Scopes[key] = collection = new();
+                collection.accessSource = (watchable, key);
             }
-            return watched;
+
+            collection.Add(scope);
+            scope.includedTables.Add(collection);
         }
 
-        #region Scope Management
+        /** UPDATE: watchable will be watched by default, so we dont need it anymore. **/
+        // internal static T MakeProxy<T>(T watched) where T : IWatchable
+        // {
+        //     var payload = watched.Payload;
+        //     if ((payload.StatusFlags & (byte)PreservedWatchableFlags.Reactive) == 0)
+        //     {
+        //         payload.onBeforeGet -= OnGlobalBeforeGetProperty;
+        //         payload.onAfterSet -= OnGlobalAfterSetProperty;
+        //         payload.onBeforeGet += OnGlobalBeforeGetProperty;
+        //         payload.onAfterSet += OnGlobalAfterSetProperty;
+        //         payload.StatusFlags |= (byte)PreservedWatchableFlags.Reactive;
+        //     }
 
-        internal static void RunScope(WatchScope scope, bool invokeNormalEffect = true)
+        //     return watched;
+        // }
+
+        internal static void RunScope(WatchScope scope, bool invokeNormalEffect = true, bool checkEnable = true)
         {
             scope.isDirty = false;
+
             if (scope.lifeKeeper != null && !scope.lifeKeeper.IsAlive)
             {
                 ClearScopeDependencies(scope);
                 return;
             }
 
-            if (scope.frameIndex != s_frameIndex)
-            {
-                scope.updatedInOneFrame = 0;
-                scope.frameIndex = s_frameIndex;
-            }
-
-            if (scope.updateLimit != -1
-                && ++scope.updatedInOneFrame > scope.updateLimit)
+            if (Interlocked.Read(ref s_stackUpdateCount) >= UpdateLimit)
             {
                 scope.isDirty = true;
-
-                var frame = scope.stackFrames
-                    .Where(f => f.GetMethod().GetCustomAttribute<DebuggerHiddenAttribute>() == null)
-                    .FirstOrDefault();
-                Logger.Warning("effect times exceed max iter count " + frame?.GetFileName() + frame?.GetFileLineNumber());
+                RaiseUpdateCountExceedsLimitWarning(scope);
+                s_exceededScopes.Add(scope);
                 return;
             }
 
             using (ActiveScopeRegion.Create(scope))
             {
                 ClearScopeDependencies(scope);
-                using (EnableReferenceCollectRegion.Create())
-                {
-                    try
-                    {
-                        Assert.IsNotNull(scope.effect);
-                        scope.effect();
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.Error(e);
-                    }
-                }
 
+                var prevCollectState = s_shouldCollectReference;
                 try
                 {
-                    if (invokeNormalEffect) scope.normalEffect?.Invoke();
+                    s_shouldCollectReference = true;
+                    AssertNotNull(scope.checker);
+
+                    if (checkEnable && !scope.IsEnabled)
+                    {
+                        // scope.isDirty = true;
+                        return;
+                    }
+
+                    scope.checker();
                 }
                 catch (Exception e)
                 {
+                    if (e is StackOverflowException)
+                    {
+                        throw;
+                    }
+
                     Logger.Error(e);
+                }
+                finally
+                {
+                    s_shouldCollectReference = prevCollectState;
+                }
+
+                if (invokeNormalEffect)
+                {
+                    try
+                    {
+                        scope.normalEffect?.Invoke();
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is StackOverflowException)
+                        {
+                            throw;
+                        }
+
+                        Logger.Error(e);
+                    }
                 }
             }
         }
 
+        private static void RaiseUpdateCountExceedsLimitWarning(WatchScope scope)
+        {
+#if ENABLE_UNITY_VUE_TRACKER
+            var frame = scope.stackFrames
+                .Where(f => f.GetMethod().GetCustomAttribute<DebuggerHiddenAttribute>() == null)
+                .FirstOrDefault();
+            Logger.Warning("effect times exceed max iter count " + frame?.GetFileName() + ":" + frame?.GetFileLineNumber());
+#else
+            Logger.Warning("effect times exceed max iter count");
+
+#endif
+        }
+
+        /// <summary>
+        /// Update and clear all dirty scopes.
+        /// </summary>
+        /// <remarks>
+        /// Usually it's unnecessary to do this manually. The system will clear the dirties automatically at a proper time.
+        /// </remarks>
         public static void UpdateDirtyScopes()
         {
-            s_frameIndex++;
-
-            while (dirtyScopes.Count > 0)
+            if (Thread.CurrentThread.ManagedThreadId != 1)
             {
-                WatchScope dirtyScope = null;
-                foreach (var (scp, _) in dirtyScopes)
+                Logger.Warning("UpdateDirtyScopes can only be called from main thread.");
+                return;
+            }
+
+            Interlocked.Exchange(ref s_cleanUpdateCount, 0);
+
+            while (shared_accessQueue.TryDequeue(out var result))
+            {
+                var (watched, key) = result;
+
+                OnGlobalAfterSetProperty(watched, key);
+            }
+
+            while (s_dirtyScopes.Count > 0)
+            {
+                if (Interlocked.Increment(ref s_cleanUpdateCount) >= UpdateLimit)
                 {
-                    dirtyScope = scp;
+                    RaiseUpdateCountExceedsLimitWarning(s_dirtyScopes.First());
+                    s_dirtyScopes.Clear();
                     break;
                 }
 
-                RunScope(dirtyScope);
-                if (IsScopeClean(dirtyScope) || IsScopeUpdatedTooMuchTimes(dirtyScope))
+                using (CollectionPool.Get<List<WatchScope>>(out var scopes))
                 {
-                    dirtyScopes.Remove(dirtyScope, out _);
+                    foreach (var scp in s_dirtyScopes)
+                    {
+                        scopes.Add(scp);
+                    }
+
+                    foreach (var dirtyScope in scopes)
+                    {
+                        RunScope(dirtyScope);
+                        if (!dirtyScope.isDirty || s_exceededScopes.Contains(dirtyScope))
+                        {
+                            s_dirtyScopes.Remove(dirtyScope);
+                        }
+                    }
                 }
             }
+
+            s_exceededScopes.Clear();
         }
 
         internal static void SetDirty(WatchScope scope, bool dirty = true)
         {
             scope.isDirty = dirty;
-            if (dirty)
+            if (scope.autoClearDirty)
             {
-                CSReactive.dirtyScopes.TryAdd(scope, true);
+                if (dirty)
+                {
+                    s_dirtyScopes.Add(scope);
+                }
+                else
+                {
+                    s_dirtyScopes.Remove(scope);
+                }
             }
-            else
-            {
-                CSReactive.dirtyScopes.Remove(scope, out _);
-            }
-        }
-
-        static bool IsScopeUpdatedTooMuchTimes(WatchScope scope)
-        {
-            return scope.updateLimit != -1
-                && scope.updatedInOneFrame > scope.updateLimit
-                && scope.frameIndex == s_frameIndex
-                ;
-        }
-
-        static bool IsScopeClean(WatchScope scope)
-        {
-            return !scope.isDirty;
         }
 
         static void ClearScopeDependencies(WatchScope scope)
         {
-
             foreach (var collection in scope.includedTables)
             {
                 collection.Remove(scope);
             }
+
             scope.includedTables.Clear();
         }
 
-        internal static void FreeScope(WatchScope scope)
+        internal static void FreeScope(WatchScope scope, bool removeCallbackInLifeKeeper)
         {
-            ClearScopeDependencies(scope);
-            if (scope.lifeKeeper != null)
+            if (Thread.CurrentThread.ManagedThreadId != 1)
             {
-                scope.lifeKeeper.onDestroyed -= scope.Dispose;
+                Logger.Warning("WatchScope can only be disposed from main thread.");
+                return;
             }
-            CSReactive.dirtyScopes.Remove(scope, out _);
 
-            scope.effect = null;
+            ClearScopeDependencies(scope);
+            if (removeCallbackInLifeKeeper && scope.lifeKeeper != null)
+            {
+                scope.lifeKeeper.Scopes.Remove(scope);
+                scope.lifeKeeper = null;
+            }
+
+            scope.isDirty = false;
+            s_dirtyScopes.Remove(scope);
+
+            scope.checker = null;
             scope.normalEffect = null;
             scope.onDisposed?.Invoke();
             scope.onDisposed = null;
         }
 
-        #endregion // Scope Management
+        [Conditional("DEBUG")]
+        static void AssertNotNull(object obj)
+        {
+            if (obj is null)
+            {
+                throw new($"Argument must not be null.");
+            }
+        }
 
-        private struct ActiveScopeRegion : IDisposable
+        public static SuppressCollectRegion BeginSuppressCollectRegion()
+        {
+            return SuppressCollectRegion.Create();
+        }
+
+        public ref struct SuppressCollectRegion
+        {
+            private bool prev;
+
+            internal static SuppressCollectRegion Create()
+            {
+                var region = new SuppressCollectRegion()
+                {
+                    prev = s_shouldCollectReference,
+                };
+                s_shouldCollectReference = false;
+                return region;
+            }
+
+            public void Dispose()
+            {
+                s_shouldCollectReference = prev;
+            }
+        }
+
+        private ref struct ActiveScopeRegion
         {
             private WatchScope prev;
             private WatchScope current;
+
             public static ActiveScopeRegion Create(WatchScope scope)
             {
                 var region = new ActiveScopeRegion()
                 {
-                    prev = executingScope,
+                    prev = s_executingScope,
                     current = scope,
                 };
-                executingScope = scope;
+                s_executingScope = scope;
                 return region;
             }
+
             public void Dispose()
             {
-                if (current != executingScope)
+                if (current != s_executingScope)
                 {
                     throw new("stacking scopes not poped in a correct order, are you access this via multi-thread?");
                 }
-                executingScope = prev;
+
+                s_executingScope = prev;
+                if (prev == null)
+                {
+                    Interlocked.Exchange(ref s_stackUpdateCount, 0);
+                }
             }
         }
-
-        private struct EnableReferenceCollectRegion : IDisposable
-        {
-            public static EnableReferenceCollectRegion Create()
-            {
-                CSReactive.shouldCollectReference = true;
-                return new();
-            }
-            public void Dispose()
-            {
-                CSReactive.shouldCollectReference = false;
-            }
-        }
-
-
     }
 }

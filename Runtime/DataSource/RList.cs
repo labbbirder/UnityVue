@@ -1,54 +1,54 @@
 //author: bbbirder
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using System.Runtime.CompilerServices;
-using System.Buffers;
 using System.Text;
+using System.Threading;
+using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace BBBirder.UnityVue
 {
+    [Serializable]
+    [DebuggerTypeProxy(typeof(RList<>.RListDebugView))]
     public partial class RList<T> : CollectionBase, IWatchableList<T>, IList, IDisposable
     {
+        // private const int DefaultCapacity = 4;
+        static readonly T[] s_empty = Array.Empty<T>();
         static readonly EqualityComparer<T> DefaultComparer = EqualityComparer<T>.Default;
         static readonly bool IsElementWatchableType = typeof(IWatchable).IsAssignableFrom(typeof(T));
-        static readonly ArrayPool<T> ArrayPool = CollectionUtility<T>.ArrayPool;
+        static readonly ArrayPool<T> ArrayPool = ModuleProps<T>.ArrayPool;
 
-        bool IWatchable.IsPropertyWatchable(object key)
-        {
-            if (key is "Count")
-            {
-                return false;
-            }
-            return IsElementWatchableType;
-        }
-        IWatchableList<T> AsDataProxy => this;
-
-        protected T[] _array = Array.Empty<T>();
+        protected T[] _array = s_empty;
         int _Count = 0;
+
+        IWatchableList<T> AsProxy => this;
+        WatchablePayload Payload => AsProxy.Payload;
 
         public int Count
         {
             get
             {
-                AsDataProxy.onPropertyGet?.Invoke(this, nameof(Count));
+                Payload.onBeforeGet?.Invoke(this, nameof(Count));
                 return _Count;
             }
             protected set
             {
                 if (_Count == value) return;
                 _Count = value;
-                AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
+                Payload.onAfterSet?.Invoke(this, nameof(Count));
             }
         }
 
         public RList()
         {
-            EnsureSize(4);
+            // If allocates with a default size, the array pool will returns an array with at least 16, which consumes too much memory.
+            // EnsureSize(DefaultCapacity);
         }
 
         public RList(int capacity)
@@ -62,14 +62,17 @@ namespace BBBirder.UnityVue
             {
                 return GetByIndex(index);
             }
+
             if (key is string str && int.TryParse(str, out index))
             {
                 return GetByIndex(index);
             }
+
             if (key is nameof(Count))
             {
                 return _Count;
             }
+
             throw new ArgumentException($"key is not a number {key}");
         }
 
@@ -78,12 +81,16 @@ namespace BBBirder.UnityVue
             if (key is int index)
             {
                 _array[index] = (T)value;
+                return true;
                 // _array[index] = TypeUtils.CastTo<T>(value);
             }
+
             if (key is string str && int.TryParse(str, out index))
             {
                 _array[index] = (T)value;
+                return true;
             }
+
             throw new ArgumentException($"key is not a number {key}");
         }
 
@@ -98,14 +105,14 @@ namespace BBBirder.UnityVue
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns> <summary>
-        /// 
+        ///
         /// </summary>
         /// <value></value>
         public virtual T this[int index]
         {
             get
             {
-                AsDataProxy.onPropertyGet?.Invoke(this, index.BoxNumber());
+                Payload.onBeforeGet?.Invoke(this, index.BoxNumber());
                 return GetByIndex(index);
             }
             set
@@ -114,24 +121,45 @@ namespace BBBirder.UnityVue
                 {
                     throw new IndexOutOfRangeException($"index {index} out of range[0..{_Count}]");
                 }
+
                 var prev = _array[index];
                 if (DefaultComparer.Equals(prev, value)) return;
                 _array[index] = value;
-                AsDataProxy.onPropertySet?.Invoke(this, index.BoxNumber());
+                Payload.onAfterSet?.Invoke(this, index.BoxNumber());
             }
         }
 
         public virtual void EnsureSize(int size)
         {
             if (_array.Length >= size) return;
-            size = CollectionUtility<T>.LargerSizeInPowOf2(size);
-            var newArr = ArrayPool.Rent(size);
-            if (_Count > 0)
+            if (size == 0)
             {
-                Array.Copy(_array, newArr, _Count);
+                ReleaseArray(ref _array);
+                _array = s_empty;
             }
-            ArrayPool.Return(_array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
-            _array = newArr;
+            else
+            {
+                size = CollectionUtility.LargerSizeInPowOf2(size);
+                var newArr = ArrayPool.Rent(size);
+                // var newArr = new T[size];
+                if (_Count > 0)
+                {
+                    Array.Copy(_array, newArr, _Count);
+                }
+
+                ReleaseArray(ref _array);
+                _array = newArr;
+            }
+        }
+
+        private void ReleaseArray(ref T[] array)
+        {
+            if (array != null && !ReferenceEquals(array, s_empty))
+            {
+                ArrayPool.Return(array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            }
+
+            array = s_empty;
         }
 
         #region Array-like Implements
@@ -142,6 +170,7 @@ namespace BBBirder.UnityVue
         public bool IsFixedSize { get; set; } = false;
 
         public bool IsSynchronized => false;
+
         public object SyncRoot
         {
             get
@@ -150,6 +179,7 @@ namespace BBBirder.UnityVue
                 {
                     Interlocked.CompareExchange<object>(ref _syncRoot, new(), null);
                 }
+
                 return _syncRoot;
             }
         }
@@ -169,6 +199,7 @@ namespace BBBirder.UnityVue
             {
                 Array.Clear(_array, 0, _Count);
             }
+
             Count = 0;
         }
 
@@ -177,23 +208,31 @@ namespace BBBirder.UnityVue
         /// </summary>
         public virtual void Clear()
         {
+            if (_Count == 0)
+                return;
+
             using var _ = StartClearOperation();
             var cnt = _Count;
-            for (int i = cnt - 1; i >= 0; i--)
+
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
-                _Count--;
-                // onRemoveItem?.Invoke(_array[i]);
-                if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+                Array.Clear(_array, 0, cnt);
+                _Count = 0;
+                for (int i = cnt - 1; i >= 0; i--)
                 {
-                    _array[i] = default;
+                    Payload.onAfterSet?.Invoke(this, i.BoxNumber());
                 }
-                AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
             }
-            // if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
-            // {
-            //     Array.Clear(_array, 0, cnt);
-            // }
-            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
+            else
+            {
+                _Count = 0;
+                for (int i = cnt - 1; i >= 0; i--)
+                {
+                    Payload.onAfterSet?.Invoke(this, i.BoxNumber());
+                }
+            }
+
+            Payload.onAfterSet?.Invoke(this, nameof(Count));
         }
 
         /// <summary>
@@ -206,8 +245,8 @@ namespace BBBirder.UnityVue
             EnsureSize(_Count + 1);
             _array[_Count] = item;
             _Count++;
-            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
-            AsDataProxy.onPropertySet?.Invoke(this, (_Count - 1).BoxNumber());
+            Payload.onAfterSet?.Invoke(this, nameof(Count));
+            Payload.onAfterSet?.Invoke(this, (_Count - 1).BoxNumber());
         }
 
         public RList(IEnumerable<T> items)
@@ -222,18 +261,18 @@ namespace BBBirder.UnityVue
 
         private AtomicCollectionOperation StartClearOperation()
         {
-            if (AsDataProxy.onClearItems == null) return new();
+            if (AsProxy.onClearItems == null) return new();
             return new AtomicCollectionOperation(this, CollectionOperationType.Clear, null, null);
         }
-        private AtomicCollectionOperation StartAddOperation(int index, object item)
+        private AtomicCollectionOperation StartAddOperation(int index, object addedItem)
         {
-            if (AsDataProxy.onAddItem == null) return new();
-            return new AtomicCollectionOperation(this, CollectionOperationType.Add, index.BoxNumber(), item);
+            if (AsProxy.onAddItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Add, index.BoxNumber(), addedItem);
         }
-        private AtomicCollectionOperation StartRemoveOperation(int index, object item)
+        private AtomicCollectionOperation StartRemoveOperation(int index, object removedItem)
         {
-            if (AsDataProxy.onRemoveItem == null) return new();
-            return new AtomicCollectionOperation(this, CollectionOperationType.Remove, index.BoxNumber(), item);
+            if (AsProxy.onRemoveItem == null) return new();
+            return new AtomicCollectionOperation(this, CollectionOperationType.Remove, index.BoxNumber(), removedItem);
         }
 
         public virtual void AddRange(IEnumerable<T> items)
@@ -255,14 +294,15 @@ namespace BBBirder.UnityVue
             // modify
             EnsureSize(_Count + count);
             Array.Copy(items, startIndex, _array, _Count, count);
+            int istart = _Count;
+            int iend = _Count += count;
 
             // notify
-            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
-            int iend = _Count = _Count + count;
-            for (int i = _Count; i < iend; i++)
+            Payload.onAfterSet?.Invoke(this, nameof(Count));
+            for (int i = istart; i < iend; i++)
             {
-                using var _ = StartAddOperation(_Count, _array[i]);
-                AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
+                using var _ = StartAddOperation(i, _array[i]);
+                Payload.onAfterSet?.Invoke(this, i.BoxNumber());
             }
         }
 
@@ -271,18 +311,20 @@ namespace BBBirder.UnityVue
             using var _ = StartAddOperation(index, item);
 
             // modify
-            EnsureSize(_Count += 1);
-            for (int i = ~-_Count; i > index; i--)
+            EnsureSize(_Count + 1);
+            for (int i = _Count; i > index; i--)
             {
                 _array[i] = _array[~-i];
             }
+
             _array[index] = item;
+            _Count += 1;
 
             // notify
-            AsDataProxy.onPropertySet?.Invoke(this, nameof(Count));
+            Payload.onAfterSet?.Invoke(this, nameof(Count));
             for (int i = index; i < _Count; i++)
             {
-                AsDataProxy.onPropertySet?.Invoke(this, i.BoxNumber());
+                Payload.onAfterSet?.Invoke(this, i.BoxNumber());
             }
         }
 
@@ -293,10 +335,18 @@ namespace BBBirder.UnityVue
             using var op = StartRemoveOperation(index, item);
             for (int i = index; i < _Count - 1; i++)
             {
-                this[i] = this[-~i];
+                _array[i] = _array[-~i];
             }
-            this[_Count - 1] = default(T);
-            Count--;
+
+            _array[_Count - 1] = default(T);
+            _Count--;
+
+            for (int i = index; i < _Count; i++)
+            {
+                Payload.onAfterSet?.Invoke(this, i.BoxNumber());
+            }
+
+            Payload.onAfterSet?.Invoke(this, nameof(Count));
         }
 
         public bool Remove(T item)
@@ -307,6 +357,7 @@ namespace BBBirder.UnityVue
                 RemoveAt(index);
                 return true;
             }
+
             return false;
         }
 
@@ -332,7 +383,7 @@ namespace BBBirder.UnityVue
 
         public int IndexOf(T item)
         {
-            if (AsDataProxy.onPropertyGet is null)
+            if (Payload.onBeforeGet is null)
             {
                 return Array.IndexOf(_array, item);
             }
@@ -340,12 +391,13 @@ namespace BBBirder.UnityVue
             {
                 for (int i = 0; i < _Count; i++)
                 {
-                    AsDataProxy.onPropertyGet.Invoke(this, i.BoxNumber());
+                    Payload.onBeforeGet.Invoke(this, i.BoxNumber());
                     if (DefaultComparer.Equals(item, _array[i]))
                     {
                         return i;
                     }
                 }
+
                 return ~0;
             }
         }
@@ -403,6 +455,7 @@ namespace BBBirder.UnityVue
                     sbuilder.Append(' ', 4);
                     lineWidth = 4;
                 }
+
                 var space = -lineWidth & 3;
                 var step = sitem.Length + 2 + space;
                 if (lineWidth > 4 && lineWidth + step > bufferWidth)
@@ -411,6 +464,7 @@ namespace BBBirder.UnityVue
                     sbuilder.Append(' ', 4);
                     lineWidth = 4;
                 }
+
                 step -= space;
                 space = -lineWidth & 3;
                 step += space;
@@ -424,20 +478,20 @@ namespace BBBirder.UnityVue
             return sbuilder.ToString();
         }
 
-        public IEnumerator<T> GetEnumerator()
+        public Enumerator GetEnumerator()
         {
-            for (int i = 0; i < Count; i++)
-            {
-                yield return this[i];
-            }
+            Payload.onBeforeGet?.Invoke(this, nameof(Count));
+            return new Enumerator(this);
+        }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            for (int i = 0; i < Count; i++)
-            {
-                yield return this[i];
-            }
+            return GetEnumerator();
         }
 
         int IList.Add(object value)
@@ -458,7 +512,15 @@ namespace BBBirder.UnityVue
 
         void IList.Insert(int index, object value)
         {
-            Insert(index, (T)value);
+            try
+            {
+                Insert(index, (T)value);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"type:{typeof(T)}  value:{value} value_type:{value?.GetType()}. this:{this}");
+                UnityEngine.Debug.LogException(e);
+            }
         }
 
         void IList.Remove(object value)
@@ -471,9 +533,15 @@ namespace BBBirder.UnityVue
             CopyTo((T[])array, index);
         }
 
+        /// <summary>
+        /// Release and return buffers to shared pool immediately
+        /// </summary>
+        /// <remarks>
+        /// Optional Disposal: GC works well without `Dispose()`. No leak will happen.
+        /// </remarks>
         public void Dispose()
         {
-            ArrayPool.Return(_array, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            ReleaseArray(ref _array);
         }
 
         public override void ClearAll()
@@ -485,6 +553,58 @@ namespace BBBirder.UnityVue
         {
             RemoveAt((int)key);
         }
+
+        public struct Enumerator : IEnumerator<T>
+        {
+            readonly IList<T> _list;
+            int _index;
+            T _current;
+
+            public T Current => _current;
+            object IEnumerator.Current => _current;
+
+            public Enumerator(IList<T> list)
+            {
+                _list = list;
+                _index = 0;
+                _current = default;
+            }
+
+            public void Dispose()
+            {
+            }
+
+            public bool MoveNext()
+            {
+                if (_index < _list.Count)
+                {
+                    _current = _list[_index];
+                    _index++;
+                    return true;
+                }
+
+                return false;
+            }
+
+            public void Reset()
+            {
+                _index = 0;
+                _current = default;
+            }
+        }
         #endregion
+
+
+        internal class RListDebugView
+        {
+            RList<T> list;
+            public RListDebugView(RList<T> list)
+            {
+                this.list = list;
+            }
+
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public T[] Values => list.ToArray();
+        }
     }
 }

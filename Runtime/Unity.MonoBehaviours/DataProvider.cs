@@ -1,18 +1,22 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+#if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
+#endif
 using UnityEngine;
 using UnityEngine.Pool;
 
 namespace BBBirder.UnityVue
 {
+    [Obsolete("Need Review")]
     public abstract class DataProvider : ReactiveBehaviour
     {
         [Reactive] public IWatchable TypelessData { get; set; }
         public abstract Type DataType { get; }
     }
 
+    [Obsolete("Need Review")]
     public abstract class DataProvider<T> : DataProvider where T : IWatchable
     {
 #if ODIN_INSPECTOR
@@ -31,9 +35,8 @@ namespace BBBirder.UnityVue
             private set;
         }
 
-        protected override void Awake()
+        protected virtual void Awake()
         {
-            base.Awake();
             Instance = this;
         }
 

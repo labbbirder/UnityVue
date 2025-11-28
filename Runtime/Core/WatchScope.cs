@@ -25,40 +25,39 @@ namespace BBBirder.UnityVue
         Immediate,
     }
 
-    public interface IScopeLifeKeeper
-    {
-        bool IsAlive { get; }
-        event Action onDestroyed;
-    }
-
     public class WatchScope
     {
-        internal const int DEFAULT_UPDATE_LIMIT = 100;
+        private bool isDisposed;
+        internal ScopeFlushMode flushMode;
+        internal IScopeLifeKeeper lifeKeeper;
+        private bool ignoreEnableState;
 
-        public ScopeFlushMode flushMode;
-        public IScopeLifeKeeper lifeKeeper;
-        public int updateLimit = DEFAULT_UPDATE_LIMIT;
-        public Action effect, normalEffect, onDisposed;
+        public Action checker, normalEffect, rawNormalEffect, onDisposed;
         internal bool hideInTracker = false;
+        internal RefData<bool> isEnabledSelf = new(true);
         internal bool isDirty = false;
-        internal int updatedInOneFrame;
-        internal int frameIndex;
+        internal bool autoClearDirty = true;
+        internal bool IsEnabled => ignoreEnableState ? true : isEnabledSelf && (lifeKeeper?.IsEnabled ?? true);
+        public ScopeFlushMode FlushMode => flushMode;
+        public IScopeLifeKeeper LifeKeeper => lifeKeeper;
 #if ENABLE_UNITY_VUE_TRACKER
         const int MAX_STACK_COUNT = 12;
         internal StackFrame[] stackFrames;
-        internal string debugName;
 #endif
+        internal string debugName;
         /// <summary>
         /// a reference copy from data account, remove self when clear dependencies
         /// </summary>
         /// <returns></returns>
         internal HashSet<ScopeCollection> includedTables = new();
+        public bool IsDisposed => isDisposed;
 
-        public WatchScope(Action effect) : this(effect, null, 2) { }
+        internal WatchScope(Action effect, ScopeArgument argument = default) : this(effect, null, argument, 2) { }
 
-        public WatchScope(Action effect, Action normalEffect, int depth = 1)
+        internal WatchScope(Action effect, Action normalEffect, ScopeArgument argument, int depth = 1)
         {
-            this.effect = effect;
+            this.isDisposed = false;
+            this.checker = effect;
             this.normalEffect = normalEffect;
 #if ENABLE_UNITY_VUE_TRACKER
             GlobalTrackerData.Instance.scopes.Add(new(this));
@@ -66,12 +65,17 @@ namespace BBBirder.UnityVue
                 .Take(MAX_STACK_COUNT)
                 .ToArray();
 #endif
-        }
+            this.flushMode = argument.flushMode;
+            this.ignoreEnableState = argument.ignoreEnableState;
+            this.hideInTracker = argument.hideInTracker;
 
-        public void SetFlushMode(ScopeFlushMode flushMode)
-        {
-            this.flushMode = flushMode;
-            if (flushMode == ScopeFlushMode.Immediate)
+            if (argument.lifeKeeper is { } lifeKeeper)
+            {
+                lifeKeeper.Scopes.Add(this);
+                this.lifeKeeper = lifeKeeper;
+            }
+
+            if (this.flushMode is ScopeFlushMode.Immediate)
             {
                 if (isDirty)
                 {
@@ -81,44 +85,20 @@ namespace BBBirder.UnityVue
             }
         }
 
-        public WatchScope WithArguments(WatchScopeArguments arguments)
-        {
-            if (arguments.updateLimit != 0)
-            {
-                this.updateLimit = arguments.updateLimit;
-            }
-
-            this.hideInTracker = arguments.hideInTracker;
-            SetFlushMode(arguments.flushMode);
-            return this;
-        }
-
-        public WatchScope WithLifeKeeper(IScopeLifeKeeper lifeKeeper)
-        {
-            lifeKeeper.onDestroyed -= Dispose;
-            lifeKeeper.onDestroyed += Dispose;
-            this.lifeKeeper = lifeKeeper;
-            return this;
-        }
-
-        public WatchScope WithLifeKeeper(UnityEngine.Object uo)
-        {
-            var ur = new UnityReferenceLifeKeeper(uo);
-            ReactiveManager.Instance.unityObjectKeepers.Add(ur);
-            return WithLifeKeeper(ur);
-        }
-
-        public WatchScope WithLifeKeeper<T>(T uo) where T : UnityEngine.Object, IScopeLifeKeeper
-        {
-            return WithLifeKeeper(uo as IScopeLifeKeeper);
-        }
-
         /// <summary>
         /// Execute once
         /// </summary>
-        public void Update()
+        public WatchScope Update()
         {
-            CSReactive.RunScope(this, true);
+            // CSReactive.RunScope(this, true);
+            // The followings may be more reasonable ...
+            rawNormalEffect?.Invoke();
+            return this;
+        }
+
+        public override string ToString()
+        {
+            return $"WatchScope({debugName})";
         }
 
         /// <summary>
@@ -126,36 +106,30 @@ namespace BBBirder.UnityVue
         /// </summary>
         public void Dispose()
         {
-            CSReactive.FreeScope(this);
+            // TODO: when a lifekeeper dies, `removeCallbackInLifeKeeper` should be passed with false
+            CSReactive.FreeScope(this, removeCallbackInLifeKeeper: true);
+            isDisposed = true;
         }
     }
 
-    public struct WatchScopeArguments
+    public struct ScopeArgument
     {
         /// <summary>
         /// Determine when the scope got updated.
         /// </summary>
         public ScopeFlushMode flushMode;
-        /// <summary>
-        /// Determine the maximum times allowed to update in one frame.
-        /// </summary>
-        public int updateLimit;
         public bool hideInTracker;
+        public IScopeLifeKeeper lifeKeeper;
+        public bool ignoreEnableState;
 
-        public static implicit operator WatchScopeArguments(ScopeFlushMode flushMode) => new()
+        public static implicit operator ScopeArgument(ScopeFlushMode flushMode) => new()
         {
             flushMode = flushMode,
         };
 
-        public static implicit operator WatchScopeArguments(int updateLimit) => new()
-        {
-            updateLimit = updateLimit,
-        };
-
-        public static implicit operator WatchScopeArguments((ScopeFlushMode flushMode, int updateLimit) args) => new()
+        public static implicit operator ScopeArgument((ScopeFlushMode flushMode, int updateLimit) args) => new()
         {
             flushMode = args.flushMode,
-            updateLimit = args.updateLimit,
         };
     }
 }
