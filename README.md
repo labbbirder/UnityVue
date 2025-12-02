@@ -14,7 +14,7 @@ Unity纯C#版的VUE，运行时高效，运行时0GC。
 * 数据变化时，对相关作用域做脏标记。当前帧的Update结束后，对脏作用域进行刷新。
 * 支持List、Array等数组成员
 * 可自定义更新时机 : LateUpdate(post) & Immediate(sync)
-* 代理函数: Reactive & Ref
+* ~~代理函数: Reactive & Ref~~ (可监听数据不再需要初始化)
 * 绑定函数: Watch & Compute & WatchEffect & Bind
 * MonoBehaviour响应式
 

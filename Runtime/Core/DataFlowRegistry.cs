@@ -301,6 +301,7 @@ namespace BBBirder
                     var (postBinder, immBinder) = GetBinderPair(name, sourceMember, type);
                     foreach (var targetModule in targetModules)
                     {
+                        // TODO: use Watch to avoid trigger in setters
                         if (postBinder != null)
                         {
                             var scp = lifeKeeper.WatchEffect(() =>
