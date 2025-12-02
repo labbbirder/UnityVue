@@ -124,7 +124,7 @@ namespace BBBirder.UnityVue
                 {
                     var scp = binder.Watch(RunCheck, RunEffect, flushMode);
                     if (flushOnStartup) scp.Update();
-                    scp.debugName = property.Name;
+                    scp.SetDebugName(property.Name);
                     return scp;
 
                     WatchArgument<T> RunCheck()
@@ -148,7 +148,7 @@ namespace BBBirder.UnityVue
                 {
                     var scp = binder.Watch(RunCheck, RunEffect, flushMode);
                     if (flushOnStartup) scp.Update();
-                    scp.debugName = property.Name;
+                    scp.SetDebugName(property.Name);
                     return scp;
 
                     T RunCheck()
@@ -250,7 +250,7 @@ namespace BBBirder.UnityVue
                 {
                     action();
                 }, FlushMode);
-            scp.debugName = method.Name;
+            scp.SetDebugName(method.Name);
             return scp;
         }
     }

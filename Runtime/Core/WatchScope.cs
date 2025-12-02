@@ -40,7 +40,7 @@ namespace BBBirder.UnityVue
         const int MAX_STACK_COUNT = 12;
         internal StackFrame[] stackFrames;
 #endif
-        internal string debugName;
+        private string debugName;
         /// <summary>
         /// a reference copy from data account, remove self when clear dependencies
         /// </summary>
@@ -92,6 +92,11 @@ namespace BBBirder.UnityVue
             return this;
         }
 
+        [Conditional("DEBUG")]
+        public void SetDebugName(string name)
+        {
+            debugName = name;
+        }
         public override string ToString()
         {
             return $"WatchScope({debugName})";

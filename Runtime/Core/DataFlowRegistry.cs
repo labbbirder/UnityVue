@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using BBBirder.DirectAttribute;
@@ -12,6 +13,7 @@ namespace BBBirder
     public class DataSourceAttribute : DirectRetrieveAttribute
     {
         public readonly string DataName;
+        public override bool PreserveTarget => true;
         public DataSourceAttribute(string dataName)
         {
             this.DataName = dataName;
@@ -22,9 +24,12 @@ namespace BBBirder
     public class DataTargetAttribute : DirectRetrieveAttribute
     {
         public readonly string DataName;
-        public DataTargetAttribute(string dataName)
+        public readonly ScopeFlushMode FlushMode;
+        public override bool PreserveTarget => true;
+        public DataTargetAttribute(string dataName, ScopeFlushMode flushMode = ScopeFlushMode.PostUpdate)
         {
             this.DataName = dataName;
+            this.FlushMode = flushMode;
         }
     }
 
@@ -35,7 +40,7 @@ namespace BBBirder
 
         */
         const BindingFlags HelperFlags = BindingFlags.Static | BindingFlags.NonPublic;
-        static Dictionary<MemberInfo, Dictionary<int, Action<object, object>>> s_flows = new();
+        static Dictionary<MemberInfo, Dictionary<int, (Action<object, object> postBinder, Action<object, object> immBinder)>> s_flows = new();
         static Dictionary<int, (List<DataSourceAttribute> sources, Dictionary<string, List<DataTargetAttribute>> targets)> s_pipeEnds = new();
         static MethodInfo s_miBindHelper;
 
@@ -73,7 +78,7 @@ namespace BBBirder
             s_miBindHelper = typeof(DataFlowRegistry).GetMethod(nameof(BindHelper), HelperFlags);
         }
 
-        static Action<object, object> BindHelper<TFrom>(string dataName, MemberInfo sourceMember, Type targetType, bool isRefData)
+        static (Action<object, object> postBinder, Action<object, object> immBinder) BindHelper<TFrom>(string dataName, MemberInfo sourceMember, Type targetType, bool isRefData)
         {
             var preGetter = default(Func<object, object>);
             var mainGetter = default(Func<object, TFrom>);
@@ -88,7 +93,8 @@ namespace BBBirder
                 mainGetter = sourceMember.DeclaringType.GetMemberGetter<TFrom>(sourceMember.Name);
             }
 
-            var setters = new List<(Func<object, object>, Action<object, TFrom>)>();
+            var postSetters = new List<(Func<object, object>, Action<object, TFrom>)>();
+            var immSetters = new List<(Func<object, object>, Action<object, TFrom>)>();
 
             for (var baseType = targetType; baseType != null && typeof(IWatchable).IsAssignableFrom(baseType); baseType = baseType.BaseType)
             {
@@ -105,12 +111,12 @@ namespace BBBirder
                         {
                             var memGetter = targetMember.DeclaringType.GetMemberGetter<object>(targetMember.Name);
                             var valSetter = memberType.GetMemberSetter<TFrom>(nameof(RefData<int>.Value));
-                            setters.Add((memGetter, valSetter));
+                            ; (attr.FlushMode is ScopeFlushMode.PostUpdate ? postSetters : immSetters).Add((memGetter, valSetter));
                         }
                         else
                         {
                             var valSetter = targetMember.DeclaringType.GetMemberSetter<TFrom>(targetMember.Name);
-                            setters.Add((null, valSetter));
+                            ; (attr.FlushMode is ScopeFlushMode.PostUpdate ? postSetters : immSetters).Add((null, valSetter));
                         }
                     }
                 }
@@ -118,7 +124,20 @@ namespace BBBirder
 
             if (preGetter != null)
             {
-                return (source, target) =>
+                var postBinder = GetValuedBinder(postSetters);
+                var immBinder = GetValuedBinder(immSetters);
+                return (postBinder, immBinder);
+            }
+            else
+            {
+                var postBinder = GetDirectBinder(postSetters);
+                var immBinder = GetDirectBinder(immSetters);
+                return (postBinder, immBinder);
+            }
+
+            Action<object, object> GetValuedBinder(List<(Func<object, object>, Action<object, TFrom>)> setters)
+            {
+                return setters.Count == 0 ? null : (source, target) =>
                 {
                     source = preGetter(source);
                     var value = mainGetter(source);
@@ -136,9 +155,10 @@ namespace BBBirder
                     }
                 };
             }
-            else
+
+            Action<object, object> GetDirectBinder(List<(Func<object, object>, Action<object, TFrom>)> setters)
             {
-                return (source, target) =>
+                return setters.Count == 0 ? null : (source, target) =>
                 {
                     var value = mainGetter(source);
 
@@ -157,7 +177,7 @@ namespace BBBirder
             }
         }
 
-        static Action<object, object> GetBinder(string dataName, MemberInfo sourceMember, Type targetType)
+        static (Action<object, object> postBinder, Action<object, object> immBinder) GetBinderPair(string dataName, MemberInfo sourceMember, Type targetType)
         {
             if (!s_flows.TryGetValue(sourceMember, out var binderLut))
             {
@@ -165,7 +185,7 @@ namespace BBBirder
             }
 
             var id = TypeInfo.Get(targetType).Id;
-            if (!binderLut.TryGetValue(id, out var binder))
+            if (!binderLut.TryGetValue(id, out var binderPair))
             {
                 var sourceType = GetMemberType(sourceMember);
                 var refValueType = GetRefDataValueType(sourceType);
@@ -175,10 +195,10 @@ namespace BBBirder
                 }
 
                 var miBinderInstance = s_miBindHelper.MakeGenericMethod(sourceType);
-                binderLut[id] = binder = miBinderInstance.Invoke(null, new object[] { dataName, sourceMember, targetType, refValueType != null }) as Action<object, object>;
+                binderLut[id] = binderPair = ((Action<object, object> postBinder, Action<object, object> immBinder))miBinderInstance.Invoke(null, new object[] { dataName, sourceMember, targetType, refValueType != null });
             }
 
-            return binder;
+            return binderPair;
         }
 
         static Type GetRefDataValueType(Type type)
@@ -278,22 +298,42 @@ namespace BBBirder
 
                 foreach (var (type, targetModules) in lutTargets)
                 {
-                    var binder = GetBinder(name, sourceMember, type);
+                    var (postBinder, immBinder) = GetBinderPair(name, sourceMember, type);
                     foreach (var targetModule in targetModules)
                     {
-#warning TODO: switch to state binder
-                        var scp = lifeKeeper.WatchEffect(() =>
+                        if (postBinder != null)
                         {
-                            try
+                            var scp = lifeKeeper.WatchEffect(() =>
                             {
-                                binder(sourceModule, targetModule);
-                            }
-                            catch (Exception e)
+                                try
+                                {
+                                    postBinder(sourceModule, targetModule);
+                                }
+                                catch (Exception e)
+                                {
+                                    Logger.Error(new Exception($"An error occur during data flow [{name}]({sourceModule.GetType().Name}.{sourceMember.Name}->{targetModule.GetType().Name})", e));
+                                }
+                            });
+                            scp.SetDebugName($"[{name}]({sourceModule.GetType().Name}.{sourceMember.Name}->{targetModule.GetType().Name})");
+                            results.Add(scp);
+                        }
+
+                        if (immBinder != null)
+                        {
+                            var scp = lifeKeeper.WatchEffect(() =>
                             {
-                                Logger.Error(new Exception($"An error occur during data flow [{name}]({sourceModule.GetType().Name}.{sourceMember.Name}->{targetModule.GetType().Name})", e));
-                            }
-                        });
-                        results.Add(scp);
+                                try
+                                {
+                                    immBinder(sourceModule, targetModule);
+                                }
+                                catch (Exception e)
+                                {
+                                    Logger.Error(new Exception($"An error occur during data flow [{name}]({sourceModule.GetType().Name}.{sourceMember.Name}->{targetModule.GetType().Name})", e));
+                                }
+                            }, ScopeFlushMode.Immediate);
+                            scp.SetDebugName($"[{name}]({sourceModule.GetType().Name}.{sourceMember.Name}->{targetModule.GetType().Name})");
+                            results.Add(scp);
+                        }
                     }
                 }
             }
